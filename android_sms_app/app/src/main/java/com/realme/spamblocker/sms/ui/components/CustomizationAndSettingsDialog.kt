@@ -30,6 +30,8 @@ import com.realme.spamblocker.sms.data.local.prefs.*
 import com.realme.spamblocker.sms.data.repository.SmsRepository
 import com.realme.spamblocker.sms.ui.theme.RealmeHamGreen
 import com.realme.spamblocker.sms.ui.theme.RealmeSpamRed
+import com.realme.spamblocker.sms.util.AppUpdateInfo
+import com.realme.spamblocker.sms.util.AppUpdateManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -70,7 +72,7 @@ fun CustomizationAndSettingsDialog(
         }
     }
 
-    val tabs = listOf("Appearance", "AI & Filters", "Blacklist", "Notifications", "Data & Backup")
+    val tabs = listOf("Appearance", "AI & Filters", "Blacklist", "Notifications", "Data & Backup", "Update")
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -187,6 +189,7 @@ fun CustomizationAndSettingsDialog(
                     4 -> DataBackupTab(
                         repository = repository
                     )
+                    5 -> AboutAndUpdateTab()
                 }
             }
         },
@@ -726,4 +729,250 @@ private fun DataBackupTab(repository: SmsRepository) {
         }
     }
 }
+
+@Composable
+private fun AboutAndUpdateTab() {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    var isChecking by remember { mutableStateOf(false) }
+    var updateResult by remember { mutableStateOf<AppUpdateInfo?>(null) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val currentVersion = remember { AppUpdateManager.getCurrentVersion(context) }
+
+    LazyColumn(
+        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        // App Info Header Card
+        item {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Shield,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(36.dp)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text("MorpsSMS", fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                    Text(
+                        "realme UI & ColorOS Spam Blocker",
+                        fontSize = 12.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    ) {
+                        Text(
+                            text = "v$currentVersion (Installed)",
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+                }
+            }
+        }
+
+        // Software Update Card
+        item {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("Software Update", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text(
+                        "Check GitHub Releases for the latest features, security patches, and spam engine updates.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    if (updateResult != null) {
+                        val info = updateResult!!
+                        if (info.hasUpdate) {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Column(modifier = Modifier.padding(10.dp)) {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Icon(
+                                            Icons.Default.NewReleases,
+                                            contentDescription = null,
+                                            tint = MaterialTheme.colorScheme.primary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "New Update: ${info.latestVersion}",
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 13.sp,
+                                            color = MaterialTheme.colorScheme.primary
+                                        )
+                                    }
+                                    if (info.releaseNotes.isNotBlank()) {
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        Text(
+                                            text = info.releaseNotes.take(180) + if (info.releaseNotes.length > 180) "..." else "",
+                                            fontSize = 11.sp,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                    }
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+
+                            if (info.downloadUrl != null) {
+                                Button(
+                                    onClick = {
+                                        AppUpdateManager.startDownload(context, info.downloadUrl, "MorpsSMS_${info.latestVersion}.apk")
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape = RoundedCornerShape(10.dp),
+                                    colors = ButtonDefaults.buttonColors(
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary
+                                    )
+                                ) {
+                                    Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text("Download & Install Update")
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                        } else {
+                            Surface(
+                                shape = RoundedCornerShape(10.dp),
+                                color = RealmeHamGreen.copy(alpha = 0.15f),
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Row(
+                                    modifier = Modifier.padding(10.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = null,
+                                        tint = RealmeHamGreen,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "You're on the latest version ($currentVersion)!",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.SemiBold,
+                                        color = RealmeHamGreen
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(10.dp))
+                        }
+                    }
+
+                    if (errorMessage != null) {
+                        Text(
+                            text = "Error: $errorMessage",
+                            color = RealmeSpamRed,
+                            fontSize = 11.sp
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+
+                    // Check for Updates Button
+                    OutlinedButton(
+                        onClick = {
+                            isChecking = true
+                            errorMessage = null
+                            scope.launch {
+                                val result = AppUpdateManager.checkForUpdate(context)
+                                isChecking = false
+                                result.onSuccess { info ->
+                                    updateResult = info
+                                    if (!info.hasUpdate) {
+                                        Toast.makeText(context, "MorpsSMS is up to date!", Toast.LENGTH_SHORT).show()
+                                    }
+                                }.onFailure { e ->
+                                    errorMessage = e.localizedMessage ?: "Failed to reach GitHub"
+                                    Toast.makeText(context, "Update check failed: $errorMessage", Toast.LENGTH_SHORT).show()
+                                }
+                            }
+                        },
+                        enabled = !isChecking,
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        if (isChecking) {
+                            CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Checking GitHub...")
+                        } else {
+                            Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Check for Updates")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            AppUpdateManager.openBrowser(context, "https://github.com/cmorpe7-ui/MorpsSMS/releases")
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.OpenInNew, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("View Releases on GitHub")
+                    }
+                }
+            }
+        }
+
+        // About Project Card
+        item {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = MaterialTheme.colorScheme.surfaceVariant,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(14.dp)) {
+                    Text("About Project", fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        "MorpsSMS is an open-source, privacy-first SMS messenger with local machine learning spam detection. Licensed under MIT.",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Repository: github.com/cmorpe7-ui/MorpsSMS",
+                        fontSize = 11.sp,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.clickable {
+                            AppUpdateManager.openBrowser(context, "https://github.com/cmorpe7-ui/MorpsSMS")
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
 
