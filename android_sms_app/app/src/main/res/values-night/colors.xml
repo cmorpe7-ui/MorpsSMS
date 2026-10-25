@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="status_bar_color">#121212</color>
+    <color name="navigation_bar_color">#1E1E1E</color>
+    <color name="window_background">#121212</color>
+    <color name="realme_yellow">#FFC915</color>
+</resources>

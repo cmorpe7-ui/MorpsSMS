@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Stylized Modern SMS Chat Bubble (Dark Charcoal on realme Yellow) -->
+    <path
+        android:fillColor="#141414"
+        android:pathData="M54,28 C40.193,28 29,38.297 29,51 C29,58.625 33.15,65.286 39.5,69.25 L37.2,78.5 L47.4,73.1 C49.5,73.7 51.7,74 54,74 C67.807,74 79,63.703 79,51 C79,38.297 67.807,28 54,28 Z" />
+
+    <!-- 3 Yellow Chat Message Dots -->
+    <path
+        android:fillColor="#FFC915"
+        android:pathData="M43,51m-3.5,0a3.5,3.5 0,1 1,7 0a3.5,3.5 0,1 1,-7 0" />
+    <path
+        android:fillColor="#FFC915"
+        android:pathData="M54,51m-3.5,0a3.5,3.5 0,1 1,7 0a3.5,3.5 0,1 1,-7 0" />
+    <path
+        android:fillColor="#FFC915"
+        android:pathData="M65,51m-3.5,0a3.5,3.5 0,1 1,7 0a3.5,3.5 0,1 1,-7 0" />
+</vector>
