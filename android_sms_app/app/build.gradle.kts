@@ -9,7 +9,7 @@ android {
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.realme.spamblocker.sms"
+        applicationId = "com.morps.sms"
         minSdk = 26
         targetSdk = 34
         versionCode = 1
@@ -21,13 +21,30 @@ android {
         }
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("../morps-release.jks")
+            storePassword = "morps123"
+            keyAlias = "morps"
+            keyPassword = "morps123"
+            enableV1Signing = true
+            enableV2Signing = true
+            enableV3Signing = true
+            enableV4Signing = true
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+        }
+        debug {
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
