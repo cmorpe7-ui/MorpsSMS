@@ -99,6 +99,19 @@ class MessagesViewModel(val repository: SmsRepository) : ViewModel() {
         }
     }
 
+    fun markSelectedAsNotSpam(messages: List<MessageEntity>) {
+        val toRestore = _selectedThreads.value.toList()
+        viewModelScope.launch(Dispatchers.IO) {
+            for (sender in toRestore) {
+                val sample = messages.firstOrNull { it.sender == sender }
+                if (sample != null) {
+                    repository.markAsNotSpam(sample)
+                }
+            }
+            clearSelection()
+        }
+    }
+
     fun togglePin(message: MessageEntity) {
         viewModelScope.launch(Dispatchers.IO) {
             repository.togglePin(message.sender, !message.isPinned)

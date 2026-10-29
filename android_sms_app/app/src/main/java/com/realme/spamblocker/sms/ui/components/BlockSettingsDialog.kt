@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.realme.spamblocker.sms.SpamBlockerApp
+import com.realme.spamblocker.sms.data.local.prefs.AppSettingsManager
 import com.realme.spamblocker.sms.ui.theme.RealmeHamGreen
 import com.realme.spamblocker.sms.ui.theme.RealmeSpamRed
 import com.realme.spamblocker.sms.ui.theme.RealmeYellow
@@ -38,11 +39,12 @@ fun BlockSettingsDialog(
     val repository = app.repository
     val wordStatDao = app.database.wordStatDao()
     val scope = rememberCoroutineScope()
+    val settings = remember { AppSettingsManager.getInstance(context) }
 
     var selectedSettingsTab by remember { mutableIntStateOf(0) } // 0 = Rules, 1 = Blacklist
     var spamWordsCount by remember { mutableIntStateOf(0) }
     var hamWordsCount by remember { mutableIntStateOf(0) }
-    var selectedThreshold by remember { mutableFloatStateOf(0.70f) }
+    val spamThreshold by settings.spamThreshold.collectAsState()
 
     val blockedNumbers by repository.getBlockedNumbers().collectAsState(initial = emptyList())
     var newNumberToBlock by remember { mutableStateOf("") }
@@ -105,14 +107,14 @@ fun BlockSettingsDialog(
                     ) {
                         val levels = listOf("Aggressive (60%)" to 0.60f, "Balanced (70%)" to 0.70f, "Relaxed (85%)" to 0.85f)
                         levels.forEach { (label, value) ->
-                            val isSelected = selectedThreshold == value
+                            val isSelected = kotlin.math.abs(spamThreshold - value) < 0.01f
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
                                 color = if (isSelected) RealmeYellow else MaterialTheme.colorScheme.surfaceVariant,
                                 modifier = Modifier.weight(1f)
                             ) {
                                 TextButton(
-                                    onClick = { selectedThreshold = value },
+                                    onClick = { settings.setSpamThreshold(value) },
                                     contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp)
                                 ) {
                                     Text(
@@ -153,8 +155,12 @@ fun BlockSettingsDialog(
                     OutlinedButton(
                         onClick = {
                             scope.launch {
-                                repository.syncExistingSms(context)
-                                Toast.makeText(context, "Rescanned phone SMS history", Toast.LENGTH_SHORT).show()
+                                repository.syncExistingSms(context, forceFullSync = true)
+                                withContext(Dispatchers.IO) {
+                                    spamWordsCount = wordStatDao.getTotalSpamWords() ?: 0
+                                    hamWordsCount = wordStatDao.getTotalHamWords() ?: 0
+                                }
+                                Toast.makeText(context, "Rescanned & re-evaluated SMS history with updated AI rules", Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier.fillMaxWidth(),

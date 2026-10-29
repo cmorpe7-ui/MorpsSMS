@@ -10,7 +10,9 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,8 +23,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
@@ -31,6 +33,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.realme.spamblocker.sms.data.local.entity.MessageEntity
+import com.realme.spamblocker.sms.ml.BayesClassifier
 import com.realme.spamblocker.sms.ui.theme.*
 import com.realme.spamblocker.sms.util.SmartMessageAnalyzer
 import com.realme.spamblocker.sms.util.UrlInspection
@@ -67,15 +70,222 @@ fun RealmeMessageCard(
     }
     val urls = remember(message.body) { SmartMessageAnalyzer.inspectUrls(message.body) }
 
+    val density = LocalDensity.current
+    var targetOffsetX by remember { mutableFloatStateOf(0f) }
+    var dragOffset by remember { mutableFloatStateOf(0f) }
+    var isDragging by remember { mutableStateOf(false) }
+
+    // Auto-close actions when entering selection mode
+    LaunchedEffect(isSelectionMode) {
+        if (isSelectionMode) {
+            targetOffsetX = 0f
+            dragOffset = 0f
+            isDragging = false
+        }
+    }
+
+    val animatedOffset by animateFloatAsState(
+        targetValue = targetOffsetX,
+        animationSpec = spring(dampingRatio = 0.85f, stiffness = 500f),
+        label = "swipeOffset"
+    )
+
+    val currentOffset = if (isDragging) dragOffset else animatedOffset
+    val maxLeftRevealDp = 210.dp
+    val maxLeftRevealPx = with(density) { maxLeftRevealDp.toPx() }
+    val rightSwipeThresholdDp = 80.dp
+    val rightSwipeThresholdPx = with(density) { rightSwipeThresholdDp.toPx() }
+
+    val draggableState = rememberDraggableState { delta ->
+        dragOffset = (dragOffset + delta).coerceIn(-maxLeftRevealPx * 1.15f, rightSwipeThresholdPx * 1.5f)
+    }
+
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.background)
-            .combinedClickable(
-                onClick = onCardClick,
-                onLongClick = onLongClick
-            )
+            .clipToBounds()
     ) {
+        // 1. BEHIND - LEFT ACTION: SWIPE RIGHT -> UNREAD / READ (iOS Blue)
+        if (currentOffset > 0f) {
+            Box(
+                modifier = Modifier
+                    .matchParentSize()
+                    .background(Color(0xFF007AFF))
+                    .clickable {
+                        targetOffsetX = 0f
+                        onMarkUnread()
+                    },
+                contentAlignment = Alignment.CenterStart
+            ) {
+                Row(
+                    modifier = Modifier.padding(start = 24.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = if (message.isRead) Icons.Default.MarkChatUnread else Icons.Default.MarkEmailRead,
+                        contentDescription = if (message.isRead) "Mark Unread" else "Mark Read",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Text(
+                        text = if (message.isRead) "Unread" else "Read",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                }
+            }
+        }
+
+        // 2. BEHIND - RIGHT ACTIONS: SWIPE LEFT -> PIN, SPAM, DELETE (iOS 3-Button Tray)
+        if (currentOffset < 0f) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .width(maxLeftRevealDp)
+                    .matchParentSize()
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Button 1: Pin
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .background(Color(0xFFFF9F0A))
+                            .clickable {
+                                targetOffsetX = 0f
+                                onTogglePin()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.PushPin,
+                                contentDescription = if (message.isPinned) "Unpin" else "Pin",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (message.isPinned) "Unpin" else "Pin",
+                                color = Color.White,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Button 2: Spam / Restore
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .background(if (isSpamTab) RealmeHamGreen else Color(0xFF5E35B1))
+                            .clickable {
+                                targetOffsetX = 0f
+                                if (isSpamTab) onMarkAsNotSpam() else onMarkAsSpam()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = if (isSpamTab) Icons.Default.CheckCircle else Icons.Default.Shield,
+                                contentDescription = if (isSpamTab) "Restore" else "Spam",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (isSpamTab) "Restore" else "Spam",
+                                color = Color.White,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+
+                    // Button 3: Delete
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight()
+                            .background(Color(0xFFFF3B30))
+                            .clickable {
+                                targetOffsetX = 0f
+                                onDelete()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Delete,
+                                contentDescription = "Delete",
+                                tint = Color.White,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "Delete",
+                                color = Color.White,
+                                fontSize = 11.5.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3. FOREGROUND MESSAGE CARD
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .offset { IntOffset(currentOffset.roundToInt(), 0) }
+                .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.background)
+                .combinedClickable(
+                    onClick = {
+                        if (targetOffsetX != 0f) {
+                            targetOffsetX = 0f
+                        } else {
+                            onCardClick()
+                        }
+                    },
+                    onLongClick = onLongClick
+                )
+                .draggable(
+                    state = draggableState,
+                    orientation = Orientation.Horizontal,
+                    enabled = !isSelectionMode,
+                    onDragStarted = {
+                        isDragging = true
+                        dragOffset = targetOffsetX
+                    },
+                    onDragStopped = { velocity ->
+                        isDragging = false
+                        if (dragOffset > rightSwipeThresholdPx) {
+                            targetOffsetX = 0f
+                            onMarkUnread()
+                        } else if (dragOffset < -rightSwipeThresholdPx || velocity < -500f) {
+                            targetOffsetX = -maxLeftRevealPx
+                        } else {
+                            targetOffsetX = 0f
+                        }
+                    }
+                )
+        ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -252,13 +462,16 @@ fun RealmeMessageCard(
                         if (isSpamTab) {
                             Spacer(modifier = Modifier.height(6.dp))
                             val percentage = (message.spamProbability * 100).toInt()
+                            val threatReason = remember(message.sender, message.body) {
+                                BayesClassifier.getThreatReason(message.body, message.sender)
+                            }
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
-                                    text = "⚠️ $percentage% Spam Detected",
+                                    text = "⚠️ $percentage% Spam" + if (threatReason != null) " • $threatReason" else " Detected",
                                     fontSize = 11.sp,
                                     fontWeight = FontWeight.Bold,
                                     color = RealmeSpamRed
@@ -286,6 +499,7 @@ fun RealmeMessageCard(
                 .align(Alignment.BottomCenter)
         )
     }
+}
 
     // PHISHING URL INSPECTOR MODAL
     if (inspectingUrl != null) {

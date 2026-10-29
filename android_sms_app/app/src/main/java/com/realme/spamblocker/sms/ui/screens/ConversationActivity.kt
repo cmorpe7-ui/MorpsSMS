@@ -203,6 +203,43 @@ fun ConversationScreen(
                             tint = MaterialTheme.colorScheme.primary
                         )
                     }
+
+                    // Direct Spam / Block / Restore Action in Top Bar
+                    if (initialIsSpam) {
+                        IconButton(onClick = {
+                            val sample = messages.lastOrNull()
+                            if (sample != null) {
+                                scope.launch {
+                                    repository.markAsNotSpam(sample)
+                                    Toast.makeText(context, "Restored to Inbox & Unblocked", Toast.LENGTH_SHORT).show()
+                                    onBackClick()
+                                }
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.CheckCircle,
+                                contentDescription = "Restore to Inbox",
+                                tint = RealmeHamGreen
+                            )
+                        }
+                    } else {
+                        IconButton(onClick = {
+                            val sample = messages.lastOrNull()
+                            if (sample != null) {
+                                scope.launch {
+                                    repository.markAsSpam(sample)
+                                    Toast.makeText(context, "Reported Spam & Number Blocked 🛡️", Toast.LENGTH_SHORT).show()
+                                    onBackClick()
+                                }
+                            }
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Shield,
+                                contentDescription = "Report Spam & Block",
+                                tint = RealmeSpamRed
+                            )
+                        }
+                    }
                 }
 
                 HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
@@ -561,7 +598,64 @@ fun ConversationScreen(
                     }
                 }
 
-                // 4. Delete Single Message
+                // 4. Report Spam & Block / Restore
+                if (initialIsSpam) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                scope.launch {
+                                    repository.markAsNotSpam(msg)
+                                    Toast.makeText(context, "Restored to Inbox & Unblocked", Toast.LENGTH_SHORT).show()
+                                    onBackClick()
+                                }
+                                activeMessageForAction = null
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.CheckCircle, contentDescription = "Restore", tint = RealmeHamGreen)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Restore to Inbox (Not Spam)", fontWeight = FontWeight.SemiBold, color = RealmeHamGreen)
+                                Text("Learns message as legitimate and unblocks sender", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                } else {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                scope.launch {
+                                    repository.markAsSpam(msg)
+                                    Toast.makeText(context, "Reported Spam & Number Blocked 🛡️", Toast.LENGTH_SHORT).show()
+                                    onBackClick()
+                                }
+                                activeMessageForAction = null
+                            },
+                        shape = RoundedCornerShape(12.dp),
+                        color = RealmeSpamRedBg
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Shield, contentDescription = "Report Spam", tint = RealmeSpamRed)
+                            Spacer(modifier = Modifier.width(12.dp))
+                            Column {
+                                Text("Report Spam & Block Sender", fontWeight = FontWeight.SemiBold, color = RealmeSpamRed)
+                                Text("Learns message patterns and auto-blocks this phone number", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    }
+                }
+
+                // 5. Delete Single Message
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -573,7 +667,7 @@ fun ConversationScreen(
                             activeMessageForAction = null
                         },
                     shape = RoundedCornerShape(12.dp),
-                    color = RealmeSpamRedBg
+                    color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),

@@ -29,6 +29,9 @@ interface MessageDao {
     @Query("SELECT * FROM messages WHERE sender = :sender ORDER BY timestamp ASC")
     fun getConversationMessages(sender: String): Flow<List<MessageEntity>>
 
+    @Query("SELECT * FROM messages WHERE sender = :sender ORDER BY timestamp ASC")
+    suspend fun getMessagesBySender(sender: String): List<MessageEntity>
+
     // Unread count
     @Query("SELECT COUNT(*) FROM messages WHERE isSpam = 0 AND isRead = 0 AND isOutgoing = 0")
     fun getUnreadInboxCount(): Flow<Int>

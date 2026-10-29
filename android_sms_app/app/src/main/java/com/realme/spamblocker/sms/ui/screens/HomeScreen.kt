@@ -193,13 +193,21 @@ fun HomeScreen(
                                 )
                             }
 
-                            // SPAM ACTION
+                            // SPAM OR RESTORE ACTION
                             if (!isViewingSpam) {
                                 IconButton(onClick = {
                                     val samples = currentList.filter { selectedThreads.contains(it.sender) }.associate { it.sender to it.body }
                                     viewModel.markSelectedAsSpam(samples)
+                                    Toast.makeText(context, "Selected marked as Spam & blocked 🛡️", Toast.LENGTH_SHORT).show()
                                 }) {
                                     Icon(Icons.Default.Shield, contentDescription = "Mark as Spam", tint = RealmeSpamRed)
+                                }
+                            } else {
+                                IconButton(onClick = {
+                                    viewModel.markSelectedAsNotSpam(currentList)
+                                    Toast.makeText(context, "Selected restored to Inbox & unblocked", Toast.LENGTH_SHORT).show()
+                                }) {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = "Restore to Inbox", tint = RealmeHamGreen)
                                 }
                             }
                         }
@@ -545,7 +553,14 @@ fun HomeScreen(
                             onMarkAsNotSpam = { viewModel.markAsNotSpam(message) },
                             onDelete = { viewModel.deleteThread(message.sender) },
                             onDeleteAndSpam = { viewModel.deleteAndMarkSpam(message) },
-                            onMarkUnread = { viewModel.markAsUnread(message) }
+                            onMarkUnread = {
+                                viewModel.toggleReadStatus(message)
+                                Toast.makeText(
+                                    context,
+                                    if (message.isRead) "Marked as unread" else "Marked as read",
+                                    Toast.LENGTH_SHORT
+                                ).show()
+                            }
                         )
                     }
                 }

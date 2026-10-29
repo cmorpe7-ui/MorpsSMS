@@ -55,7 +55,7 @@ class SmsRepository(
             isExplicitlyBlocked -> Pair(1.0f, true)
             isContact && whitelistContacts -> Pair(0.0f, false)
             else -> {
-                val score = BayesClassifier.predict(wordStatDao, body, phShield)
+                val score = BayesClassifier.predict(wordStatDao, body, phShield, sender)
                 Pair(score, score >= threshold)
             }
         }
@@ -87,18 +87,53 @@ class SmsRepository(
 
     suspend fun markAsSpam(message: MessageEntity) {
         messageDao.updateThreadSpamStatus(message.sender, isSpam = true)
-        // Incremental active learning: Learn words as Spam
-        BayesClassifier.train(wordStatDao, message.body, isSpam = true)
+        // Automatically add sender to blocked numbers blacklist
+        blockedNumberDao.blockNumber(
+            BlockedNumberEntity(
+                phoneNumber = message.sender,
+                reason = "Reported Spam"
+            )
+        )
+        // Incremental active learning: Learn all messages in this conversation as Spam
+        val threadMessages = messageDao.getMessagesBySender(message.sender)
+        if (threadMessages.isNotEmpty()) {
+            for (msg in threadMessages) {
+                BayesClassifier.train(wordStatDao, msg.body, isSpam = true)
+            }
+        } else {
+            BayesClassifier.train(wordStatDao, message.body, isSpam = true)
+        }
     }
 
     suspend fun markAsNotSpam(message: MessageEntity) {
         messageDao.updateThreadSpamStatus(message.sender, isSpam = false)
-        // Incremental active learning: Recover false positive
-        BayesClassifier.untrainSpamAndLearnHam(wordStatDao, message.body)
+        // Remove sender from blocked numbers blacklist
+        blockedNumberDao.unblockByNumber(message.sender)
+        // Incremental active learning: Recover false positive for all messages in thread
+        val threadMessages = messageDao.getMessagesBySender(message.sender)
+        if (threadMessages.isNotEmpty()) {
+            for (msg in threadMessages) {
+                BayesClassifier.untrainSpamAndLearnHam(wordStatDao, msg.body)
+            }
+        } else {
+            BayesClassifier.untrainSpamAndLearnHam(wordStatDao, message.body)
+        }
     }
 
     suspend fun markMultipleAsSpam(senders: List<String>, sampleMessages: List<String>) {
         messageDao.updateMultipleThreadsSpamStatus(senders, isSpam = true)
+        for (sender in senders) {
+            blockedNumberDao.blockNumber(
+                BlockedNumberEntity(
+                    phoneNumber = sender,
+                    reason = "Reported Spam"
+                )
+            )
+            val threadMessages = messageDao.getMessagesBySender(sender)
+            for (msg in threadMessages) {
+                BayesClassifier.train(wordStatDao, msg.body, isSpam = true)
+            }
+        }
         for (msg in sampleMessages) {
             BayesClassifier.train(wordStatDao, msg, isSpam = true)
         }

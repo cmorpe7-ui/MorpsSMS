@@ -80,7 +80,7 @@ object SmsSyncManager {
                         isExplicitlyBlocked -> Pair(1.0f, true)
                         isContact && whitelist -> Pair(0.0f, false)
                         else -> {
-                            val score = BayesClassifier.predict(wordStatDao, msg.body, phShield)
+                            val score = BayesClassifier.predict(wordStatDao, msg.body, phShield, msg.sender)
                             Pair(score, score >= threshold)
                         }
                     }
@@ -132,7 +132,7 @@ object SmsSyncManager {
                 var isSpam = false
                 var spamProbability = 0.0f
                 if (!isOutgoing && (!isContact || !whitelist) && body.isNotBlank()) {
-                    spamProbability = BayesClassifier.predict(wordStatDao, body, phShield)
+                    spamProbability = BayesClassifier.predict(wordStatDao, body, phShield, address)
                     isSpam = spamProbability >= threshold
                 }
 
