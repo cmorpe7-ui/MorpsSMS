@@ -29,9 +29,22 @@ enum class MessageCategory(val title: String) {
 
 object SmartMessageAnalyzer {
 
-    private val OTP_REGEX = Pattern.compile(
-        """(?i)(?:code|otp|pin|verification|passcode|one-time|auth|security code)[^\d]{0,10}(\b\d{4,8}\b)|(\b\d{4,8}\b)[^\d]{0,10}(?:is your|code|otp|pin)"""
+    // Multi-tier regex patterns for diverse OTP/verification message formats
+    private val OTP_PATTERNS = listOf(
+        // Google G-XXXXXX or explicit labeled codes (e.g. "code: 123456", "OTP: 123456")
+        Pattern.compile("""(?i)\b(?:g-|code:?\s*|otp:?\s*|pin:?\s*|token:?\s*|passcode:?\s*)(\d{4,8})\b"""),
+        // Keyword followed by code within 40 characters (e.g. "Your verification code for Netflix is 492102")
+        Pattern.compile("""(?i)(?:verification code|security code|auth(?:entication)? code|one-time (?:pin|code|password)|passcode|login code|otp|pin|token|code)[^\d]{1,40}?(\b\d{4,8}\b)"""),
+        // Code followed by keyword within 40 characters (e.g. "123456 is your authentication code")
+        Pattern.compile("""(?i)(\b\d{4,8}\b)[^\d]{1,40}?(?:is your|is the|to verify|verification|code|pin|otp|passcode|secret)"""),
+        // Action phrases: "Use 123456 to verify/login/confirm"
+        Pattern.compile("""(?i)(?:use|enter|input)[^\d]{1,20}?(\b\d{4,8}\b)[^\d]{1,30}?(?:verify|login|log in|confirm|auth)"""),
+        // Filipino / regional language formats
+        Pattern.compile("""(?i)(?:kod|kumpirmahin|iyong code)[^\d]{1,30}?(\b\d{4,8}\b)""")
     )
+
+    private val DIGIT_CANDIDATE_REGEX = Regex("""\b\d{4,8}\b""")
+    private val YEAR_STRINGS = setOf("2024", "2025", "2026", "2027")
 
     private val URL_REGEX = Pattern.compile(
         """(https?://[^\s/$.?#].[^\s]*)""",
@@ -79,23 +92,45 @@ object SmartMessageAnalyzer {
 
         val lower = body.lowercase()
         // Fast-path: Skip regex entirely if no verification keywords exist
-        if (!lower.contains("code") && !lower.contains("otp") && !lower.contains("pin") &&
-            !lower.contains("verif") && !lower.contains("passcode") && !lower.contains("auth") &&
-            !lower.contains("one-time")
-        ) {
+        val hasOtpKeyword = lower.contains("code") || lower.contains("otp") ||
+                lower.contains("pin") || lower.contains("verif") ||
+                lower.contains("passcode") || lower.contains("auth") ||
+                lower.contains("one-time") || lower.contains("onetime") ||
+                lower.contains("security") || lower.contains("token") ||
+                lower.contains("código") || lower.contains("kod") ||
+                lower.contains("kumpirma") || lower.contains("g-")
+        if (!hasOtpKeyword) {
             return null
         }
 
         otpCache.get(body)?.let { return it }
 
-        val matcher = OTP_REGEX.matcher(body)
-        if (matcher.find()) {
-            val code = matcher.group(1) ?: matcher.group(2)
-            if (code != null) {
-                otpCache.put(body, code)
-                return code
+        // 1. Try structured high-confidence regex patterns
+        for (pattern in OTP_PATTERNS) {
+            val matcher = pattern.matcher(body)
+            if (matcher.find()) {
+                val code = matcher.group(1)
+                if (code != null && code.length in 4..8) {
+                    otpCache.put(body, code)
+                    return code
+                }
             }
         }
+
+        // 2. Fallback heuristic: If message clearly has verification intent and exactly one 4-8 digit number
+        val candidates = DIGIT_CANDIDATE_REGEX.findAll(body).map { it.value }.toList()
+        val nonYears = candidates.filter { it !in YEAR_STRINGS }
+        val bestCandidate = when {
+            nonYears.size == 1 -> nonYears.first()
+            candidates.size == 1 -> candidates.first()
+            else -> null
+        }
+
+        if (bestCandidate != null) {
+            otpCache.put(body, bestCandidate)
+            return bestCandidate
+        }
+
         return null
     }
 

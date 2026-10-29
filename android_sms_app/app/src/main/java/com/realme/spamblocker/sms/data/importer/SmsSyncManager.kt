@@ -76,8 +76,10 @@ object SmsSyncManager {
                 if (!msg.isOutgoing) {
                     val isExplicitlyBlocked = blocked.contains(msg.sender)
                     val isContact = ContactUtils.isContact(context, msg.sender)
+                    val isOtp = com.realme.spamblocker.sms.util.SmartMessageAnalyzer.extractOtp(msg.body) != null
                     val (newProb, newSpam) = when {
                         isExplicitlyBlocked -> Pair(1.0f, true)
+                        isOtp -> Pair(0.0f, false)
                         isContact && whitelist -> Pair(0.0f, false)
                         else -> {
                             val score = BayesClassifier.predict(wordStatDao, msg.body, phShield, msg.sender)
@@ -131,7 +133,8 @@ object SmsSyncManager {
                 // Calculate spam probability based on user preferences
                 var isSpam = false
                 var spamProbability = 0.0f
-                if (!isOutgoing && (!isContact || !whitelist) && body.isNotBlank()) {
+                val isOtp = com.realme.spamblocker.sms.util.SmartMessageAnalyzer.extractOtp(body) != null
+                if (!isOutgoing && !isOtp && (!isContact || !whitelist) && body.isNotBlank()) {
                     spamProbability = BayesClassifier.predict(wordStatDao, body, phShield, address)
                     isSpam = spamProbability >= threshold
                 }

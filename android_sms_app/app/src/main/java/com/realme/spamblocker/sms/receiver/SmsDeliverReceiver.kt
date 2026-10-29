@@ -51,19 +51,38 @@ class SmsDeliverReceiver : BroadcastReceiver() {
                     contactPhotoUri = photoUri
                 )
 
-                // 3. If legitimate (Ham): write to Android system provider and notify
+                // 3. If legitimate (Ham): write to Android system provider, copy OTP to clipboard, and notify
                 if (!savedMessage.isSpam) {
                     try {
                         val values = android.content.ContentValues().apply {
                             put(Telephony.Sms.ADDRESS, sender)
                             put(Telephony.Sms.BODY, fullBody)
                             put(Telephony.Sms.DATE, savedMessage.timestamp)
+                            put(Telephony.Sms.DATE_SENT, System.currentTimeMillis())
                             put(Telephony.Sms.READ, 0)
+                            put(Telephony.Sms.SEEN, 0)
                             put(Telephony.Sms.TYPE, Telephony.Sms.MESSAGE_TYPE_INBOX)
                         }
                         context.contentResolver.insert(Telephony.Sms.Inbox.CONTENT_URI, values)
                     } catch (_: Exception) {
                         // Handled safely
+                    }
+
+                    // Proactive OTP clipboard delivery (enables instant Gboard suggestion strip)
+                    val otp = com.realme.spamblocker.sms.util.SmartMessageAnalyzer.extractOtp(fullBody)
+                    if (otp != null) {
+                        try {
+                            val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                            val clip = android.content.ClipData.newPlainText("OTP Code", otp)
+                            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                clip.description.extras = android.os.PersistableBundle().apply {
+                                    putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true)
+                                }
+                            }
+                            clipboard.setPrimaryClip(clip)
+                        } catch (_: Exception) {
+                            // Handled safely if background clipboard is restricted by OS
+                        }
                     }
 
                     val displayName = contactName ?: sender

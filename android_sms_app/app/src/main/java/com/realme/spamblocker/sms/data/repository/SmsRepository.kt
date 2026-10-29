@@ -51,8 +51,12 @@ class SmsRepository(
         val whitelistContacts = settings?.whitelistContacts?.value ?: true
         val phShield = settings?.philippineShield?.value ?: true
 
+        // 2. Never treat authentic OTP / verification codes as spam (unless explicitly blocked)
+        val isOtp = com.realme.spamblocker.sms.util.SmartMessageAnalyzer.extractOtp(body) != null
+
         val (spamProbability, isSpam) = when {
             isExplicitlyBlocked -> Pair(1.0f, true)
+            isOtp -> Pair(0.0f, false)
             isContact && whitelistContacts -> Pair(0.0f, false)
             else -> {
                 val score = BayesClassifier.predict(wordStatDao, body, phShield, sender)

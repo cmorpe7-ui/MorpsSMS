@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import androidx.core.app.NotificationCompat
+import androidx.core.app.Person
 import androidx.core.app.RemoteInput
 import com.realme.spamblocker.sms.R
 import com.realme.spamblocker.sms.receiver.NotificationActionReceiver
@@ -33,7 +34,7 @@ object NotificationUtils {
                 if (vibrate) "Incoming Messages" else "Incoming Messages (Silent)",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Notifications for legitimate personal SMS"
+                description = "Notifications for legitimate personal SMS and OTPs"
                 enableVibration(vibrate)
                 if (!vibrate) {
                     vibrationPattern = longArrayOf(0)
@@ -43,6 +44,9 @@ object NotificationUtils {
         }
 
         val notificationId = sender.hashCode()
+
+        // Detect OTP / verification code
+        val detectedOtp = SmartMessageAnalyzer.extractOtp(messageSnippet)
 
         // 1. Content Intent: Opens ConversationActivity directly!
         val openIntent = Intent(context, ConversationActivity::class.java).apply {
@@ -57,7 +61,28 @@ object NotificationUtils {
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
         )
 
-        // 2. Action: Mark as Read
+        // 2. Action: Dedicated Quick Copy OTP (Primary Action if OTP present)
+        val copyAction = if (detectedOtp != null) {
+            val copyIntent = Intent(context, NotificationActionReceiver::class.java).apply {
+                action = NotificationActionReceiver.ACTION_COPY_OTP
+                putExtra(NotificationActionReceiver.EXTRA_OTP_CODE, detectedOtp)
+                putExtra(NotificationActionReceiver.EXTRA_SENDER, sender)
+                putExtra(NotificationActionReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+            }
+            val copyPendingIntent = PendingIntent.getBroadcast(
+                context,
+                notificationId + 3,
+                copyIntent,
+                PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+            )
+            NotificationCompat.Action.Builder(
+                R.drawable.ic_copy_otp,
+                "Copy $detectedOtp",
+                copyPendingIntent
+            ).build()
+        } else null
+
+        // 3. Action: Mark as Read
         val markReadIntent = Intent(context, NotificationActionReceiver::class.java).apply {
             action = NotificationActionReceiver.ACTION_MARK_READ
             putExtra(NotificationActionReceiver.EXTRA_SENDER, sender)
@@ -75,7 +100,7 @@ object NotificationUtils {
             markReadPendingIntent
         ).build()
 
-        // 3. Action: Direct Inline Quick Reply (RemoteInput)
+        // 4. Action: Direct Inline Quick Reply (RemoteInput)
         val remoteInput = RemoteInput.Builder(NotificationActionReceiver.KEY_TEXT_REPLY)
             .setLabel("Reply...")
             .build()
@@ -104,27 +129,37 @@ object NotificationUtils {
                 Pair(sender, messageSnippet)
             }
             com.realme.spamblocker.sms.data.local.prefs.NotificationPrivacy.SENDER_ONLY -> {
-                Pair(sender, "New message received")
+                Pair(sender, if (detectedOtp != null) "Verification code: $detectedOtp" else "New message received")
             }
             com.realme.spamblocker.sms.data.local.prefs.NotificationPrivacy.HIDE -> {
-                Pair("Messages", "New message received")
+                Pair("Messages", if (detectedOtp != null) "Verification code: $detectedOtp" else "New message received")
             }
         }
 
-        // Build notification
+        // Build notification with MessagingStyle & CATEGORY_MESSAGE (required for Gboard & Android Autofill)
+        val person = Person.Builder()
+            .setName(titleText)
+            .setKey(sender)
+            .build()
+
+        val messagingStyle = NotificationCompat.MessagingStyle(person)
+            .setConversationTitle(titleText)
+            .addMessage(contentSnippet, System.currentTimeMillis(), person)
+
         val builder = NotificationCompat.Builder(context, targetChannelId)
             .setSmallIcon(R.drawable.ic_message_sms)
             .setContentTitle(titleText)
             .setContentText(contentSnippet)
+            .setStyle(messagingStyle)
+            .setCategory(NotificationCompat.CATEGORY_MESSAGE)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(openPendingIntent)
-            .addAction(replyAction)
-            .addAction(markReadAction)
             .setAutoCancel(true)
 
-        if (privacy == com.realme.spamblocker.sms.data.local.prefs.NotificationPrivacy.FULL) {
-            builder.setStyle(NotificationCompat.BigTextStyle().bigText(contentSnippet))
-        }
+        // Dedicated OTP Copy action appears first
+        copyAction?.let { builder.addAction(it) }
+        builder.addAction(replyAction)
+        builder.addAction(markReadAction)
 
         if (!vibrate) {
             builder.setVibrate(longArrayOf(0))

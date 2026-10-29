@@ -795,7 +795,13 @@ fun ChatBubble(
                 AssistChip(
                     onClick = {
                         val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-                        clipboard.setPrimaryClip(ClipData.newPlainText("OTP Code", detectedOtp))
+                        val clip = ClipData.newPlainText("OTP Code", detectedOtp)
+                        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                            clip.description.extras = android.os.PersistableBundle().apply {
+                                putBoolean(android.content.ClipDescription.EXTRA_IS_SENSITIVE, true)
+                            }
+                        }
+                        clipboard.setPrimaryClip(clip)
                         Toast.makeText(context, "Copied OTP: $detectedOtp", Toast.LENGTH_SHORT).show()
                     },
                     label = { Text("📋 Copy OTP: $detectedOtp", fontSize = 11.sp, fontWeight = FontWeight.Bold) }
