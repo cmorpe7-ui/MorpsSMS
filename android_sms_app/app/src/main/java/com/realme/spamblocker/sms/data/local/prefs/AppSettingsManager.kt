@@ -2,6 +2,7 @@ package com.realme.spamblocker.sms.data.local.prefs
 
 import android.content.Context
 import android.content.SharedPreferences
+import com.realme.spamblocker.sms.util.MessageCategory
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -163,6 +164,23 @@ class AppSettingsManager private constructor(context: Context) {
         _biometricLock.value = enabled
     }
 
+    // 11. Selected Category Tab
+    private val _selectedCategory = MutableStateFlow(
+        try {
+            MessageCategory.valueOf(
+                prefs.getString(KEY_SELECTED_CATEGORY, MessageCategory.ALL.name) ?: MessageCategory.ALL.name
+            )
+        } catch (_: Exception) {
+            MessageCategory.ALL
+        }
+    )
+    val selectedCategory: StateFlow<MessageCategory> = _selectedCategory.asStateFlow()
+
+    fun setSelectedCategory(category: MessageCategory) {
+        prefs.edit().putString(KEY_SELECTED_CATEGORY, category.name).apply()
+        _selectedCategory.value = category
+    }
+
     companion object {
         private const val PREFS_NAME = "realme_sms_customization_prefs"
 
@@ -176,6 +194,7 @@ class AppSettingsManager private constructor(context: Context) {
         private const val KEY_NOTIF_PRIVACY = "pref_notif_privacy"
         private const val KEY_NOTIF_VIBRATE = "pref_notif_vibrate"
         private const val KEY_BIOMETRIC_LOCK = "pref_biometric_lock"
+        private const val KEY_SELECTED_CATEGORY = "pref_selected_category"
 
         @Volatile
         private var INSTANCE: AppSettingsManager? = null

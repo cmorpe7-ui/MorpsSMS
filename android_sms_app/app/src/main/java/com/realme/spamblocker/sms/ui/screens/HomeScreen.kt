@@ -49,6 +49,7 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
+    val settingsManager = remember { AppSettingsManager.getInstance(context) }
 
     var isViewingSpam by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -68,7 +69,7 @@ fun HomeScreen(
     val isSelectionMode by viewModel.isSelectionMode.collectAsState()
     val starredMessages by viewModel.starredMessages.collectAsState()
 
-    var selectedCategory by remember { mutableStateOf(MessageCategory.ALL) }
+    val selectedCategory by settingsManager.selectedCategory.collectAsState()
 
     val filteredInboxList = remember(inboxMessages, starredMessages, selectedCategory) {
         when (selectedCategory) {
@@ -458,7 +459,7 @@ fun HomeScreen(
                                 shape = RoundedCornerShape(14.dp),
                                 color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
                                 border = if (!isSelected) BorderStroke(0.8.dp, MaterialTheme.colorScheme.outline) else null,
-                                onClick = { selectedCategory = category },
+                                onClick = { settingsManager.setSelectedCategory(category) },
                                 modifier = Modifier.height(28.dp)
                             ) {
                                 Row(
