@@ -5,11 +5,10 @@
 
 # Gradle files
 .gradle/
-build/
+.kotlin/
 **/build/
-android_sms_app/.gradle/
-android_sms_app/build/
-android_sms_app/app/build/
+**/.gradle/
+**/.kotlin/
 
 # Local configuration
 local.properties
