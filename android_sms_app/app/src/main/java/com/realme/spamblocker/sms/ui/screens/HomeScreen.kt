@@ -36,6 +36,8 @@ import com.realme.spamblocker.sms.util.MessageCategory
 import com.realme.spamblocker.sms.util.SmartMessageAnalyzer
 import com.realme.spamblocker.sms.util.TransactionInfo
 import kotlinx.coroutines.launch
+import com.realme.spamblocker.sms.data.local.prefs.AppSettingsManager
+import com.realme.spamblocker.sms.util.BiometricUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -302,7 +304,22 @@ fun HomeScreen(
                                             },
                                             onClick = {
                                                 showMenu = false
-                                                isViewingSpam = true
+                                                val settings = AppSettingsManager.getInstance(context)
+                                                val biometricLock = settings.biometricLock.value
+                                                val activity = context as? androidx.fragment.app.FragmentActivity
+                                                if (biometricLock && activity != null) {
+                                                    BiometricUtils.showBiometricPrompt(
+                                                        activity = activity,
+                                                        title = "Unlock Spam & Blocked",
+                                                        subtitle = "Verify your fingerprint or face to view spam messages",
+                                                        onSuccess = { isViewingSpam = true },
+                                                        onError = { msg ->
+                                                            Toast.makeText(context, "Authentication failed: $msg", Toast.LENGTH_SHORT).show()
+                                                        }
+                                                    )
+                                                } else {
+                                                    isViewingSpam = true
+                                                }
                                             }
                                         )
                                     } else {

@@ -1,6 +1,7 @@
 package com.realme.spamblocker.sms.data.repository
 
 import android.content.Context
+import android.provider.Telephony
 import com.realme.spamblocker.sms.data.importer.SmsSyncManager
 import com.realme.spamblocker.sms.data.local.AppDatabase
 import com.realme.spamblocker.sms.data.local.entity.BlockedNumberEntity
@@ -165,14 +166,43 @@ class SmsRepository(
 
     suspend fun deleteMessage(message: MessageEntity) {
         messageDao.deleteMessage(message)
+        context?.let { ctx ->
+            try {
+                ctx.contentResolver.delete(
+                    Telephony.Sms.CONTENT_URI,
+                    "${Telephony.Sms.ADDRESS} = ? AND ${Telephony.Sms.DATE} = ?",
+                    arrayOf(message.sender, message.timestamp.toString())
+                )
+            } catch (_: Exception) {}
+        }
     }
 
     suspend fun deleteThread(sender: String) {
         messageDao.deleteThread(sender)
+        context?.let { ctx ->
+            try {
+                ctx.contentResolver.delete(
+                    Telephony.Sms.CONTENT_URI,
+                    "${Telephony.Sms.ADDRESS} = ?",
+                    arrayOf(sender)
+                )
+            } catch (_: Exception) {}
+        }
     }
 
     suspend fun deleteMultipleThreads(senders: List<String>) {
         messageDao.deleteMultipleThreads(senders)
+        context?.let { ctx ->
+            for (sender in senders) {
+                try {
+                    ctx.contentResolver.delete(
+                        Telephony.Sms.CONTENT_URI,
+                        "${Telephony.Sms.ADDRESS} = ?",
+                        arrayOf(sender)
+                    )
+                } catch (_: Exception) {}
+            }
+        }
     }
 
     suspend fun deleteAndMarkSpam(message: MessageEntity) {

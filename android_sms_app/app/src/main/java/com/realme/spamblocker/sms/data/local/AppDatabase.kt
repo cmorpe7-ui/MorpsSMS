@@ -13,7 +13,7 @@ import com.realme.spamblocker.sms.data.local.entity.WordStatEntity
 
 @Database(
     entities = [MessageEntity::class, WordStatEntity::class, BlockedNumberEntity::class],
-    version = 6,
+    version = 7,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {

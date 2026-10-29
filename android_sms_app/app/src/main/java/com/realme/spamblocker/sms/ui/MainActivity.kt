@@ -4,12 +4,15 @@ import android.app.role.RoleManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.database.ContentObserver
 import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.Telephony
-import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.ViewModelProvider
 import com.realme.spamblocker.sms.SpamBlockerApp
 import com.realme.spamblocker.sms.ui.screens.HomeScreen
@@ -17,9 +20,10 @@ import com.realme.spamblocker.sms.ui.theme.RealmeTheme
 import com.realme.spamblocker.sms.ui.viewmodel.MessagesViewModel
 import com.realme.spamblocker.sms.ui.viewmodel.MessagesViewModelFactory
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
 
     private lateinit var viewModel: MessagesViewModel
+    private var smsObserver: ContentObserver? = null
 
     private val defaultSmsRoleLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -44,6 +48,7 @@ class MainActivity : ComponentActivity() {
 
         requestDefaultSmsRole()
         requestAppPermissions()
+        registerSmsObserver()
 
         setContent {
             RealmeTheme {
@@ -65,6 +70,37 @@ class MainActivity : ComponentActivity() {
         if (::viewModel.isInitialized && (now - lastSyncTime > 45000L)) {
             lastSyncTime = now
             viewModel.syncExistingSms(this)
+        }
+    }
+
+    private fun registerSmsObserver() {
+        if (smsObserver == null) {
+            smsObserver = object : ContentObserver(Handler(Looper.getMainLooper())) {
+                override fun onChange(selfChange: Boolean) {
+                    super.onChange(selfChange)
+                    val now = System.currentTimeMillis()
+                    if (::viewModel.isInitialized && (now - lastSyncTime > 2500L)) {
+                        lastSyncTime = now
+                        viewModel.syncExistingSms(this@MainActivity)
+                    }
+                }
+            }
+            try {
+                contentResolver.registerContentObserver(
+                    Telephony.Sms.CONTENT_URI,
+                    true,
+                    smsObserver!!
+                )
+            } catch (_: Exception) {}
+        }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        smsObserver?.let {
+            try {
+                contentResolver.unregisterContentObserver(it)
+            } catch (_: Exception) {}
         }
     }
 

@@ -371,6 +371,22 @@ fun RealmeMessageCard(
                                     Spacer(modifier = Modifier.width(4.dp))
                                 }
 
+                                if (message.subId >= 0) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = MaterialTheme.colorScheme.surfaceVariant,
+                                        modifier = Modifier.padding(end = 4.dp)
+                                    ) {
+                                        Text(
+                                            text = "SIM ${message.subId + 1}",
+                                            fontSize = 9.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                        )
+                                    }
+                                }
+
                                 Text(
                                     text = dateString,
                                     fontSize = 12.sp,

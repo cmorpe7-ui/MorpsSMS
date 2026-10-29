@@ -57,6 +57,7 @@ fun CustomizationAndSettingsDialog(
     val philippineShield by settings.philippineShield.collectAsState()
     val notificationPrivacy by settings.notificationPrivacy.collectAsState()
     val notificationVibration by settings.notificationVibration.collectAsState()
+    val biometricLock by settings.biometricLock.collectAsState()
 
     var selectedSettingsTab by remember { mutableIntStateOf(0) }
     var spamWordsCount by remember { mutableIntStateOf(0) }
@@ -183,8 +184,10 @@ fun CustomizationAndSettingsDialog(
                     3 -> NotificationsTab(
                         privacy = notificationPrivacy,
                         vibration = notificationVibration,
+                        biometricLock = biometricLock,
                         onPrivacyChange = { settings.setNotificationPrivacy(it) },
-                        onVibrationChange = { settings.setNotificationVibration(it) }
+                        onVibrationChange = { settings.setNotificationVibration(it) },
+                        onBiometricLockChange = { settings.setBiometricLock(it) }
                     )
                     4 -> DataBackupTab(
                         repository = repository
@@ -559,14 +562,16 @@ private fun BlacklistTab(
 private fun NotificationsTab(
     privacy: NotificationPrivacy,
     vibration: Boolean,
+    biometricLock: Boolean,
     onPrivacyChange: (NotificationPrivacy) -> Unit,
-    onVibrationChange: (Boolean) -> Unit
+    onVibrationChange: (Boolean) -> Unit,
+    onBiometricLockChange: (Boolean) -> Unit
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(16.dp),
         modifier = Modifier.fillMaxWidth()
     ) {
-        Text("Notification Privacy & Preview", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text("Notification Privacy & Security", fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
 
         NotificationPrivacy.values().forEach { option ->
             val isSelected = privacy == option
@@ -609,6 +614,24 @@ private fun NotificationsTab(
             Switch(
                 checked = vibration,
                 onCheckedChange = onVibrationChange
+            )
+        }
+
+        HorizontalDivider()
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text("Biometric Lock for Spam", fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                Text("Require fingerprint, face, or device PIN to access Spam & Blocked folder", fontSize = 11.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Switch(
+                checked = biometricLock,
+                onCheckedChange = onBiometricLockChange
             )
         }
     }

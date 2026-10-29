@@ -423,11 +423,18 @@ fun ConversationScreen(
                                     val msg = textInput.trim()
                                     textInput = ""
                                     showScheduleDialog = false
-                                    scope.launch {
-                                        Toast.makeText(context, "Scheduled: '$msg' ($label)", Toast.LENGTH_LONG).show()
-                                        delay(delayMs)
-                                        repository.sendOutgoingSms(context, sender, msg, currentSim?.subscriptionId ?: -1)
-                                    }
+                                    val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.realme.spamblocker.sms.worker.ScheduledSmsWorker>()
+                                        .setInitialDelay(delayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+                                        .setInputData(
+                                            androidx.work.workDataOf(
+                                                com.realme.spamblocker.sms.worker.ScheduledSmsWorker.KEY_RECIPIENT to sender,
+                                                com.realme.spamblocker.sms.worker.ScheduledSmsWorker.KEY_BODY to msg,
+                                                com.realme.spamblocker.sms.worker.ScheduledSmsWorker.KEY_SUB_ID to (currentSim?.subscriptionId ?: -1)
+                                            )
+                                        )
+                                        .build()
+                                    androidx.work.WorkManager.getInstance(context).enqueue(workRequest)
+                                    Toast.makeText(context, "Scheduled via WorkManager ($label) ⏰", Toast.LENGTH_SHORT).show()
                                 } else {
                                     Toast.makeText(context, "Please write a message first", Toast.LENGTH_SHORT).show()
                                 }
@@ -766,6 +773,16 @@ fun ChatBubble(
                                 contentDescription = "Starred",
                                 tint = Color(0xFFFFB300),
                                 modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                        }
+
+                        if (message.subId >= 0) {
+                            Text(
+                                text = "SIM ${message.subId + 1}",
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = textColor.copy(alpha = 0.6f)
                             )
                             Spacer(modifier = Modifier.width(4.dp))
                         }

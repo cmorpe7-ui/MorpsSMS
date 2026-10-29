@@ -10,7 +10,9 @@ import androidx.room.PrimaryKey
         Index(value = ["isSpam", "isPinned", "timestamp"]),
         Index(value = ["sender", "timestamp"]),
         Index(value = ["isStarred", "timestamp"]),
-        Index(value = ["isSpam", "sender", "id"])
+        Index(value = ["isSpam", "sender", "id"]),
+        Index(value = ["isSpam", "isRead", "isOutgoing"]),
+        Index(value = ["subId"])
     ]
 )
 data class MessageEntity(

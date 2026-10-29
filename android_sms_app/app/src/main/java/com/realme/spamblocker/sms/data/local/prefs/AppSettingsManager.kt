@@ -142,6 +142,12 @@ class AppSettingsManager private constructor(context: Context) {
         _philippineShield.value = enabled
     }
 
+    // 10. Biometric Lock for Spam & Blocked
+    private val _biometricLock = MutableStateFlow(
+        prefs.getBoolean(KEY_BIOMETRIC_LOCK, false)
+    )
+    val biometricLock: StateFlow<Boolean> = _biometricLock.asStateFlow()
+
     fun setNotificationPrivacy(privacy: NotificationPrivacy) {
         prefs.edit().putString(KEY_NOTIF_PRIVACY, privacy.name).apply()
         _notificationPrivacy.value = privacy
@@ -150,6 +156,11 @@ class AppSettingsManager private constructor(context: Context) {
     fun setNotificationVibration(enabled: Boolean) {
         prefs.edit().putBoolean(KEY_NOTIF_VIBRATE, enabled).apply()
         _notificationVibration.value = enabled
+    }
+
+    fun setBiometricLock(enabled: Boolean) {
+        prefs.edit().putBoolean(KEY_BIOMETRIC_LOCK, enabled).apply()
+        _biometricLock.value = enabled
     }
 
     companion object {
@@ -164,6 +175,7 @@ class AppSettingsManager private constructor(context: Context) {
         private const val KEY_PH_SHIELD = "pref_ph_shield"
         private const val KEY_NOTIF_PRIVACY = "pref_notif_privacy"
         private const val KEY_NOTIF_VIBRATE = "pref_notif_vibrate"
+        private const val KEY_BIOMETRIC_LOCK = "pref_biometric_lock"
 
         @Volatile
         private var INSTANCE: AppSettingsManager? = null
