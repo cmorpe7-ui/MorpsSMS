@@ -16,40 +16,93 @@ object BayesClassifier {
     private val BANK_KEYWORDS = listOf(
         "gcash", "maya", "bdo", "bpi", "metrobank", "unionbank",
         "landbank", "rcbc", "security bank", "palawan", "cimb",
-        "e-wallet", "online banking", "bank account"
+        "e-wallet", "online banking", "bank account", "komo", "diskartech",
+        "tonik", "seabank", "sea bank", "gotyme", "maribank", "pnb", "chinabank",
+        "security alert", "account locked", "account suspended", "unauthorized transaction",
+        "verify your account", "update your account", "re-activate your account", "wallet suspended"
     )
 
     private val GAMBLING_KEYWORDS = listOf(
         "jili", "casino", "slot", "slots", "sabong", "color game", "free bet",
-        "deposit bonus", "scatter", "free 100", "free 777", "jackpot", "vip club"
+        "deposit bonus", "scatter", "free 100", "free 777", "jackpot", "vip club",
+        "tongits", "bingo", "pagcor", "free spin", "free spins", "bonus 100", "taya",
+        "panalo", "bet88", "okbet", "phlwin", "jiliko", "fc casino", "pg slot",
+        "megapanalo", "winph", "tmtplay", "777pub", "superace", "lucky draw",
+        "claim bonus", "register bonus", "welcome bonus", "vip bonus",
+        // Patterns extracted directly from real device SMS dump
+        "super ace", "angpao", "angpao rain", "angpao rush", "deposit voucher",
+        "slot return", "slots return", "upgrade bonus", "fs today", "jili fs",
+        "laruin o i-cash out", "play or cash out", "play or withdraw", "laruin o i-withdraw",
+        "gamitin sa paglalaro o i-withdraw", "more games or cash withdrawal",
+        "cash withdrawal", "mag-withdraw", "ka-sabong", "mga ka-sabong", "rubyjili",
+        "ptgaming", "pt gaming", "nustargame", "nustar online", "nustar", "colorgame",
+        "club77", "live1188", "plus777", "gojakpot", "gjakpt", "phdula", "100p b0nus",
+        "b0nus", "free credits", "unang deposito", "first deposit", "deposit coupon",
+        "loss rebate", "rebate", "99bet", "bingoplus", "drop ball", "bingo win",
+        "panalo mo sa bingo", "ph889", "play, win, and collect", "golden hour"
     )
 
     private val LOAN_KEYWORDS = listOf(
         "pautang", "pesoloan", "mabilis cash", "fast loan", "quick loan",
-        "instant loan", "loan approved", "guaranteed approval", "no requirements"
+        "instant loan", "loan approved", "guaranteed approval", "no requirements",
+        "cash loan", "easy loan", "pera loan", "online loan", "disbursement",
+        "credit line", "loan offer", "apply now", "tala", "cashalo", "digido",
+        "finbro", "quick cash", "fast approval", "cash advance", "urgent cash",
+        "pautangcash"
+    )
+
+    // Senders with gambling names frequently spoofed or registered in PH SMS
+    private val GAMBLING_SENDER_PATTERNS = listOf(
+        "casino", "gaming", "games", "game", "bet", "sabong", "slot", "slots",
+        "bingo", "jili", "poker", "nustar", "789", "king.ph", "ph889"
+    )
+
+    // Senders associated with predatory lending apps
+    private val LOAN_SENDER_PATTERNS = listOf(
+        "pautang", "pesoloan", "mabilis cash", "cashalo", "digido", "finbro", "quick cash"
     )
 
     private val JOB_KEYWORDS = listOf(
         "part time", "parttime", "part-time", "daily salary", "daily income",
         "wfh", "work from home", "commission task", "shopee agent", "lazada agent",
-        "telegram recruiter", "whatsapp recruiter", "like and follow"
+        "telegram recruiter", "whatsapp recruiter", "like and follow",
+        "online job", "typing job", "data entry", "earn money", "daily pay",
+        "flexible hours", "task reward", "youtube task", "tiktok task", "hotel booking task",
+        "recruitment manager", "daily task", "task salary"
     )
 
     private val URGENCY_KEYWORDS = listOf(
         "suspended", "suspension", "deactivated", "blocked", "locking",
         "sim blocked", "sim card blocked", "unauthorized", "security alert",
-        "final warning", "immediate action", "within 24 hours", "arrest warrant"
+        "final warning", "immediate action", "within 24 hours", "arrest warrant",
+        "sim registration", "account closed", "restricted", "verify immediately",
+        "action required", "within 12 hours", "final notice", "urgent notice"
+    )
+
+    private val DELIVERY_KEYWORDS = listOf(
+        "unclaimed parcel", "delivery failed", "package held", "reschedule delivery",
+        "customs fee", "unpaid shipping", "parcel pending", "courier fee",
+        "j&t express", "ninjavan", "flash express", "parcel problem"
+    )
+
+    private val CRYPTO_INVEST_KEYWORDS = listOf(
+        "crypto", "bitcoin", "trading platform", "investment platform",
+        "passive income", "double your money", "high yield", "forex trading",
+        "deposit now", "binary option", "crypto mining"
     )
 
     // Suspicious URL patterns common in PH SMS spam
     private val URL_SHORTENER_REGEX = Regex(
-        """(?i)(bit\.ly|tinyurl|t\.me|cutt\.ly|shorturl|is\.gd|rb\.gy|wa\.me|v\.gd|shor\.by|tiny\.cc)"""
+        """(?i)(bit\.ly|tinyurl\.com|tinyurl|t\.me|cutt\.ly|shorturl\.at|shorturl|is\.gd|rb\.gy|wa\.me|v\.gd|shor\.by|tiny\.cc|rebrand\.ly|s\.id|ow\.ly|bit\.do|gg\.gg|app\.link|shorten\.is|t\.ly)"""
     )
     private val RAW_IP_URL_REGEX = Regex(
         """(?i)https?://\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}"""
     )
     private val SUSPICIOUS_TLD_REGEX = Regex(
-        """(?i)\.(top|xyz|club|click|buzz|vip|work|live|link|rest|icu|cam|cyou|shop)(/|\s|${'$'})"""
+        """(?i)\.(top|xyz|club|click|buzz|vip|work|live|link|rest|icu|cam|cyou|shop|cc|site|fun|online|pro|asia|pw|bar|cloud|one|win|bet|games|phdula)(/|\s|${'$'})"""
+    )
+    private val GENERAL_URL_REGEX = Regex(
+        """(?i)(https?://|www\.)[^\s/$.?#].[^\s]*"""
     )
 
     private val PH_CURRENCY_REGEX = Regex("(₱|php|pesos?)", RegexOption.IGNORE_CASE)
@@ -59,7 +112,11 @@ object BayesClassifier {
     private val KNOWN_LEGIT_SENDERS = listOf(
         "gcash", "maya", "bdo", "bpi", "metrobank", "unionbank", "globe",
         "smart", "dito", "google", "apple", "shopee", "lazada", "foodpanda",
-        "grab", "govph", "landbank", "rcbc", "securitybank", "cimb"
+        "grab", "govph", "landbank", "rcbc", "securitybank", "cimb",
+        "gotyme", "maribank", "pnb", "converge", "watsons", "gsis", "psa",
+        "cliqq", "paypal", "shein", "yandex", "riot", "tiktok", "lbcexpress",
+        "palawan_exp", "pickup", "landers", "7-eleven", "motortrade", "nissin",
+        "coins.ph", "3404", "tnt", "tntload", "smartapp", "smartload"
     )
 
     private val STOP_WORDS = setOf(
@@ -190,43 +247,103 @@ object BayesClassifier {
      */
     fun getThreatReason(message: String, sender: String): String? {
         val lower = deobfuscate(message.lowercase())
-        val cleanSender = sender.replace("\\s|-".toRegex(), "")
+        val cleanSender = sender.replace("\\s|-".toRegex(), "").lowercase()
         val isMobileSender = cleanSender.isNotBlank() && MOBILE_PATTERN.matcher(cleanSender).matches()
 
-        // 1. Bank Impersonation
-        if (isMobileSender && BANK_KEYWORDS.any { lower.contains(it) }) {
+        val isLegitBrand = KNOWN_LEGIT_SENDERS.any { brand ->
+            cleanSender == brand ||
+            cleanSender.startsWith("${brand}rewards") ||
+            cleanSender.startsWith("${brand}credit") ||
+            cleanSender.startsWith("${brand}center") ||
+            cleanSender.startsWith("${brand}agent") ||
+            cleanSender.startsWith("${brand}savings") ||
+            cleanSender.startsWith("${brand}app") ||
+            cleanSender.startsWith("${brand}load") ||
+            cleanSender.startsWith("${brand}debit") ||
+            cleanSender.startsWith("${brand}digital")
+        }
+
+        val hasAnyUrl = GENERAL_URL_REGEX.containsMatchIn(message) ||
+                URL_SHORTENER_REGEX.containsMatchIn(message) ||
+                SUSPICIOUS_TLD_REGEX.containsMatchIn(message)
+        val hasShortenerOrSuspiciousTld = URL_SHORTENER_REGEX.containsMatchIn(message) ||
+                SUSPICIOUS_TLD_REGEX.containsMatchIn(message)
+
+        // 1. BSP Circular Strict Rule: Banks & E-Wallets NEVER include clickable links in SMS
+        val hasBankKeyword = BANK_KEYWORDS.any { lower.contains(it) || cleanSender.contains(it) }
+        if (hasBankKeyword && hasAnyUrl) {
+            return "Bank Phishing Link"
+        }
+
+        // 2. Mobile Number impersonating a bank or e-wallet
+        if (isMobileSender && hasBankKeyword) {
             return "Bank Impersonation"
         }
 
-        // 2. Suspicious Links & IP
-        if (RAW_IP_URL_REGEX.containsMatchIn(message)) {
-            return "Raw IP Link"
-        }
-        if (URL_SHORTENER_REGEX.containsMatchIn(message)) {
-            return "Masked Link"
-        }
-        if (SUSPICIOUS_TLD_REGEX.containsMatchIn(message)) {
-            return "Suspicious Domain"
+        // 3. Sender ID explicitly indicates gambling / casino
+        if (!isLegitBrand && GAMBLING_SENDER_PATTERNS.any { cleanSender.contains(it) }) {
+            return "Online Casino (Sender)"
         }
 
-        // 3. Online Casino & Illegal Gambling
-        if (GAMBLING_KEYWORDS.any { lower.contains(it) }) {
+        // 4. Sender ID indicates predatory loan apps
+        if (!isLegitBrand && LOAN_SENDER_PATTERNS.any { cleanSender.contains(it) }) {
+            return "Predatory Loan (Sender)"
+        }
+
+        // 5. Online Casino & Gambling content in body (unless legitimate telco/official announcements)
+        if (!isLegitBrand && GAMBLING_KEYWORDS.any { lower.contains(it) }) {
             return "Online Casino"
         }
 
-        // 4. Predatory Loans
+        // 6. Predatory Loans in body
         if (LOAN_KEYWORDS.any { lower.contains(it) }) {
             return "Predatory Loan"
         }
 
-        // 5. Fake Job / Task Scam
+        // 7. Prize / Gift scam with link
+        if (!isLegitBrand && hasShortenerOrSuspiciousTld) {
+            val hasPrizeTerm = lower.contains("won") || lower.contains("panalo") ||
+                    lower.contains("prize") || lower.contains("gift") ||
+                    lower.contains("reward") || lower.contains("giveaway") ||
+                    lower.contains("bonus") || lower.contains("deposit")
+            if (hasPrizeTerm) {
+                return "Prize Scam Link"
+            }
+        }
+
+        // 8. Raw IP Link
+        if (RAW_IP_URL_REGEX.containsMatchIn(message)) {
+            return "Raw IP Link"
+        }
+
+        // 9. Fake Job / Task Scam
         if (JOB_KEYWORDS.any { lower.contains(it) }) {
             return "Job Scam"
         }
 
-        // 6. Urgency & Threats
+        // 10. Masked Link Shorteners without known brand
+        if (!isLegitBrand && isMobileSender && hasShortenerOrSuspiciousTld) {
+            return "Masked Link"
+        }
+
+        // 11. Urgency & Threats
         if (URGENCY_KEYWORDS.any { lower.contains(it) }) {
             return "Urgent Threat"
+        }
+
+        // 12. Delivery / Parcel Phishing with Link
+        if (DELIVERY_KEYWORDS.any { lower.contains(it) } && GENERAL_URL_REGEX.containsMatchIn(message)) {
+            return "Parcel Phishing"
+        }
+
+        // 13. Crypto / Investment Scam
+        if (CRYPTO_INVEST_KEYWORDS.any { lower.contains(it) }) {
+            return "Investment Scam"
+        }
+
+        // 14. Unknown Mobile Sender sending any link with promo/cash terms
+        if (isMobileSender && hasAnyUrl && (lower.contains("bonus") || lower.contains("claim") || lower.contains("panalo") || lower.contains("free") || lower.contains("peso") || lower.contains("php") || lower.contains("₱"))) {
+            return "Suspicious Mobile Link"
         }
 
         return null
@@ -243,63 +360,108 @@ object BayesClassifier {
     ): Float {
         var score = baseScore
         val lower = deobfuscate(message.lowercase())
-        val cleanSender = sender.replace("\\s|-".toRegex(), "")
+        val cleanSender = sender.replace("\\s|-".toRegex(), "").lowercase()
         val isMobileSender = cleanSender.isNotBlank() && MOBILE_PATTERN.matcher(cleanSender).matches()
         val isOfficialAlphanumeric = cleanSender.isNotBlank() && !isMobileSender && cleanSender.any { it.isLetter() }
 
-        // Layer 1: Bank Impersonation (Mobile number claiming to be bank / e-wallet)
-        val hasBankKeyword = BANK_KEYWORDS.any { lower.contains(it) }
-        if (isMobileSender && hasBankKeyword) {
-            score += 0.50f
+        val isKnownLegitimateBrand = KNOWN_LEGIT_SENDERS.any { brand ->
+            cleanSender == brand ||
+            cleanSender.startsWith("${brand}rewards") ||
+            cleanSender.startsWith("${brand}credit") ||
+            cleanSender.startsWith("${brand}center") ||
+            cleanSender.startsWith("${brand}agent") ||
+            cleanSender.startsWith("${brand}savings") ||
+            cleanSender.startsWith("${brand}app") ||
+            cleanSender.startsWith("${brand}load") ||
+            cleanSender.startsWith("${brand}debit") ||
+            cleanSender.startsWith("${brand}digital")
+        }
+
+        val hasAnyUrl = GENERAL_URL_REGEX.containsMatchIn(message) ||
+                URL_SHORTENER_REGEX.containsMatchIn(message) ||
+                SUSPICIOUS_TLD_REGEX.containsMatchIn(message)
+
+        // Threat Check Fast-Track
+        val threat = getThreatReason(message, sender)
+        if (threat != null) {
+            score = max(score, 0.85f)
+        }
+
+        // Layer 1: Bank Impersonation / Bank Phishing Link (BSP Circular compliance)
+        val hasBankKeyword = BANK_KEYWORDS.any { lower.contains(it) || cleanSender.contains(it) }
+        if (hasBankKeyword && hasAnyUrl) {
+            score += 0.95f
+        } else if (isMobileSender && hasBankKeyword) {
+            score += 0.70f
         }
 
         // Layer 2: Suspicious URL Shorteners & IP links
         if (URL_SHORTENER_REGEX.containsMatchIn(message)) {
-            score += 0.30f
+            score += 0.50f
         }
         if (RAW_IP_URL_REGEX.containsMatchIn(message)) {
-            score += 0.45f
+            score += 0.75f
         }
         if (SUSPICIOUS_TLD_REGEX.containsMatchIn(message)) {
-            score += 0.25f
+            score += 0.50f
         }
 
         // Layer 3: Gambling & Online Casino
-        val hasGambling = GAMBLING_KEYWORDS.any { lower.contains(it) }
-        if (hasGambling) {
-            score += 0.25f
+        val hasGamblingSender = !isKnownLegitimateBrand && GAMBLING_SENDER_PATTERNS.any { cleanSender.contains(it) }
+        val hasGambling = !isKnownLegitimateBrand && (hasGamblingSender || GAMBLING_KEYWORDS.any { lower.contains(it) })
+        if (hasGamblingSender) {
+            score += 0.80f
+        } else if (hasGambling) {
+            score += 0.60f
         }
 
         // Layer 4: Predatory Loans
-        val hasLoan = LOAN_KEYWORDS.any { lower.contains(it) }
-        if (hasLoan) {
-            score += 0.25f
+        val hasLoanSender = !isKnownLegitimateBrand && LOAN_SENDER_PATTERNS.any { cleanSender.contains(it) }
+        val hasLoan = hasLoanSender || LOAN_KEYWORDS.any { lower.contains(it) }
+        if (hasLoanSender) {
+            score += 0.80f
+        } else if (hasLoan) {
+            score += 0.55f
         }
 
         // Layer 5: Fake Job / Task Scam
         val hasJob = JOB_KEYWORDS.any { lower.contains(it) }
         if (hasJob) {
-            score += 0.25f
+            score += 0.50f
         }
 
         // Layer 6: Urgency & Threats
         val hasUrgency = URGENCY_KEYWORDS.any { lower.contains(it) }
         if (hasUrgency) {
-            score += 0.20f
+            score += 0.45f
+        }
+
+        // Layer 7: Delivery / Parcel phishing with link
+        val hasDelivery = DELIVERY_KEYWORDS.any { lower.contains(it) }
+        if (hasDelivery && GENERAL_URL_REGEX.containsMatchIn(message)) {
+            score += 0.55f
+        }
+
+        // Layer 8: Crypto / Investment Scam
+        val hasCrypto = CRYPTO_INVEST_KEYWORDS.any { lower.contains(it) }
+        if (hasCrypto) {
+            score += 0.50f
+        }
+
+        // Layer 9: Unknown Mobile Sender sending any link
+        if (isMobileSender && GENERAL_URL_REGEX.containsMatchIn(message)) {
+            score += 0.35f
         }
 
         // Currency mentions in high-risk context
-        if ((PH_CURRENCY_REGEX.containsMatchIn(message) || MONEY_AMOUNT_REGEX.containsMatchIn(message)) && (hasGambling || hasLoan || hasJob)) {
-            score += 0.15f
+        if ((PH_CURRENCY_REGEX.containsMatchIn(message) || MONEY_AMOUNT_REGEX.containsMatchIn(message)) && (hasGambling || hasLoan || hasJob || hasCrypto)) {
+            score += 0.20f
         }
 
-        // Layer 7: Authentic Brand Safe-Guard (Anti-False-Positive)
-        // If sender is a registered commercial brand and doesn't contain suspicious external short links
-        if (isOfficialAlphanumeric && !URL_SHORTENER_REGEX.containsMatchIn(message) && !RAW_IP_URL_REGEX.containsMatchIn(message)) {
-            val isKnownLegitimateBrand = KNOWN_LEGIT_SENDERS.any { cleanSender.contains(it, ignoreCase = true) }
-            if (isKnownLegitimateBrand) {
-                score = (score - 0.35f).coerceAtLeast(0.0f)
-            }
+        // Layer 10: Authentic Brand Safe-Guard (Anti-False-Positive)
+        // If sender is an authentic verified commercial brand and doesn't contain external links/IPs
+        if (isOfficialAlphanumeric && isKnownLegitimateBrand && !hasAnyUrl) {
+            score = (score - 0.50f).coerceAtLeast(0.0f)
         }
 
         return score
@@ -380,20 +542,29 @@ object BayesClassifier {
         // Critical Scam Brands & Gambing
         "gcash" to 40, "maya" to 35, "jili" to 35, "casino" to 35, "slot" to 30, "slots" to 30,
         "sabong" to 30, "color_game" to 30, "jackpot" to 25, "free_scatter" to 25, "free_100" to 30,
-        "vip_club" to 20, "free_bet" to 25, "deposit_bonus" to 25,
+        "vip_club" to 20, "free_bet" to 25, "deposit_bonus" to 25, "tongits" to 30, "bingo" to 25,
+        "pagcor" to 25, "free_spins" to 30, "phlwin" to 30, "jiliko" to 30, "panalo" to 25,
+        "super_ace" to 40, "superace" to 40, "ptgaming" to 40, "nustargame" to 40, "angpao" to 35,
+        "deposit_voucher" to 35, "slot_return" to 35, "upgrade_bonus" to 30, "ka_sabong" to 35,
+        "cash_withdrawal" to 30, "rubyjili" to 35, "colorgame" to 35, "club77" to 30, "live1188" to 30,
+        "plus777" to 30, "gojakpot" to 30, "phdula" to 30, "bingoplus" to 30, "pautangcash" to 35,
+        "panalo_mo" to 25, "bingo_win" to 25, "bit_ly" to 30, "loss_rebate" to 25,
 
         // Lending & Predatory Finance
         "pautang" to 30, "loan" to 25, "mabilis_cash" to 30, "pesoloan" to 30, "fast_approval" to 25,
-        "no_requirements" to 25, "instant_loan" to 25, "cash_advance" to 20,
+        "no_requirements" to 25, "instant_loan" to 25, "cash_advance" to 20, "cash_loan" to 30,
+        "pera_loan" to 30, "credit_line" to 25,
 
         // Phishing & Urgency
         "account_suspended" to 40, "verify_account" to 35, "suspended" to 25, "deactivated" to 25,
         "sim_blocked" to 30, "sim_registration" to 30, "unauthorized_access" to 30, "click_link" to 25,
         "click_here" to 25, "claim_prize" to 30, "nanalo" to 30, "winner" to 25, "uncollected" to 25,
+        "account_locked" to 35, "parcel_failed" to 30, "reschedule_delivery" to 30,
 
         // Fake Jobs & Recruitment
         "part_time" to 30, "parttime" to 30, "wfh" to 25, "daily_salary" to 30, "daily_income" to 25,
-        "commission_task" to 30, "shopee_agent" to 30, "lazada_agent" to 30, "telegram" to 25, "whatsapp" to 25
+        "commission_task" to 30, "shopee_agent" to 30, "lazada_agent" to 30, "telegram" to 25, "whatsapp" to 25,
+        "online_job" to 30, "typing_job" to 25, "task_salary" to 30
     )
 
     private val initialHamWords = listOf(

@@ -14,6 +14,9 @@
 - **📌 Pin & Star Messages**: Pin critical conversations to the top of the inbox and star important messages inside any thread.
 - **🖼️ Contact Photo Integration**: Automatically links and displays contact photos directly from your phone's address book with fallback initials avatars.
 - **📶 Multi-SIM Support**: Effortlessly switch SIM slots for incoming and outgoing SMS.
+- **👉 Swipe Gestures**: Swipe right to toggle Mark as Read/Unread; swipe left to move directly to Spam or Delete with fluid ColorOS haptics.
+- **🔍 Search Highlighting**: Real-time keyword & contact highlighting across conversation cards.
+- **⏰ Scheduled SMS**: Schedule SMS delivery with presets or exact custom Date & Time pickers using reliable background WorkManager.
 - **⚡ Quick Actions**: Mark as read or reply directly from heads-up notification cards.
 - **💾 Local Backup & Restore**: Export your message archive and AI vocabulary to local JSON with instant sharing support.
 
@@ -23,7 +26,7 @@
 
 Grab the latest APK directly from the [Releases](https://github.com/cmorpe7-ui/MorpsSMS/releases) page:
 
-1. Download **`MorpsSMS-v2.1.1.apk`**.
+1. Download **`MorpsSMS-v2.2.0.apk`**.
 2. Tap the downloaded file on your Android device to install.
 3. Open **MorpsSMS** and set it as your default SMS application to enable full spam blocking and delivery features.
 

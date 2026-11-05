@@ -51,13 +51,14 @@ object SmsSyncManager {
             null
         }
 
+        val limitClause = if (forceFullSync) "10000" else "5000"
         val cursor = try {
             context.contentResolver.query(
                 uri,
                 projection,
                 selection,
                 selectionArgs,
-                "${Telephony.Sms.DATE} DESC LIMIT 1000"
+                "${Telephony.Sms.DATE} DESC LIMIT $limitClause"
             )
         } catch (e: Exception) {
             null
@@ -67,31 +68,6 @@ object SmsSyncManager {
         val threshold = settings.spamThreshold.value
         val whitelist = settings.whitelistContacts.value
         val phShield = settings.philippineShield.value
-
-        // Re-evaluate existing messages with updated user settings if forceFullSync requested
-        if (forceFullSync) {
-            val allStored = messageDao.getAllMessagesList()
-            val blocked = database.blockedNumberDao().getAllBlockedNumbersList().map { it.phoneNumber }.toSet()
-            for (msg in allStored) {
-                if (!msg.isOutgoing) {
-                    val isExplicitlyBlocked = blocked.contains(msg.sender)
-                    val isContact = ContactUtils.isContact(context, msg.sender)
-                    val isOtp = com.realme.spamblocker.sms.util.SmartMessageAnalyzer.extractOtp(msg.body) != null
-                    val (newProb, newSpam) = when {
-                        isExplicitlyBlocked -> Pair(1.0f, true)
-                        isOtp -> Pair(0.0f, false)
-                        isContact && whitelist -> Pair(0.0f, false)
-                        else -> {
-                            val score = BayesClassifier.predict(wordStatDao, msg.body, phShield, msg.sender)
-                            Pair(score, score >= threshold)
-                        }
-                    }
-                    if (msg.isSpam != newSpam || kotlin.math.abs(msg.spamProbability - newProb) > 0.01f) {
-                        messageDao.updateMessageSpamScore(msg.id, newSpam, newProb)
-                    }
-                }
-            }
-        }
 
         val existingTimestamps = if (latestTimestamp != null && latestTimestamp > 0) {
             messageDao.getTimestampsSince(latestTimestamp - 5000L).toHashSet()
@@ -133,10 +109,24 @@ object SmsSyncManager {
                 // Calculate spam probability based on user preferences
                 var isSpam = false
                 var spamProbability = 0.0f
-                val isOtp = com.realme.spamblocker.sms.util.SmartMessageAnalyzer.extractOtp(body) != null
-                if (!isOutgoing && !isOtp && (!isContact || !whitelist) && body.isNotBlank()) {
-                    spamProbability = BayesClassifier.predict(wordStatDao, body, phShield, address)
-                    isSpam = spamProbability >= threshold
+                if (!isOutgoing && (!isContact || !whitelist) && body.isNotBlank()) {
+                    val threatReason = if (phShield) BayesClassifier.getThreatReason(body, address) else null
+                    val rawOtp = com.realme.spamblocker.sms.util.SmartMessageAnalyzer.extractOtp(body)
+                    val hasUrl = body.contains("http://", ignoreCase = true) ||
+                            body.contains("https://", ignoreCase = true) ||
+                            body.contains("www.", ignoreCase = true)
+                    val isAuthenticOtp = rawOtp != null && threatReason == null && !hasUrl
+
+                    if (threatReason != null) {
+                        isSpam = true
+                        spamProbability = 0.95f
+                    } else if (isAuthenticOtp) {
+                        isSpam = false
+                        spamProbability = 0.0f
+                    } else {
+                        spamProbability = BayesClassifier.predict(wordStatDao, body, phShield, address)
+                        isSpam = spamProbability >= threshold
+                    }
                 }
 
                 messagesToInsert.add(
@@ -157,6 +147,48 @@ object SmsSyncManager {
 
         if (messagesToInsert.isNotEmpty()) {
             messageDao.insertAll(messagesToInsert)
+        }
+
+        // Re-evaluate existing messages with updated user settings & AI models if forceFullSync requested
+        if (forceFullSync) {
+            val allStored = messageDao.getAllMessagesList()
+            val blocked = database.blockedNumberDao().getAllBlockedNumbersList().map { it.phoneNumber }.toSet()
+            val confirmedSpamSenders = mutableSetOf<String>()
+
+            for (msg in allStored) {
+                if (!msg.isOutgoing) {
+                    val isExplicitlyBlocked = blocked.contains(msg.sender)
+                    val isContact = ContactUtils.isContact(context, msg.sender)
+                    val threatReason = if (phShield) BayesClassifier.getThreatReason(msg.body, msg.sender) else null
+                    val rawOtp = com.realme.spamblocker.sms.util.SmartMessageAnalyzer.extractOtp(msg.body)
+                    val hasUrl = msg.body.contains("http://", ignoreCase = true) ||
+                            msg.body.contains("https://", ignoreCase = true) ||
+                            msg.body.contains("www.", ignoreCase = true)
+                    val isAuthenticOtp = rawOtp != null && threatReason == null && !hasUrl
+
+                    val (newProb, newSpam) = when {
+                        isExplicitlyBlocked -> Pair(1.0f, true)
+                        isContact && whitelist -> Pair(0.0f, false)
+                        threatReason != null -> Pair(0.95f, true)
+                        isAuthenticOtp -> Pair(0.0f, false)
+                        else -> {
+                            val score = BayesClassifier.predict(wordStatDao, msg.body, phShield, msg.sender)
+                            Pair(score, score >= threshold)
+                        }
+                    }
+                    if (newSpam && threatReason != null) {
+                        confirmedSpamSenders.add(msg.sender)
+                    }
+                    if (msg.isSpam != newSpam || kotlin.math.abs(msg.spamProbability - newProb) > 0.01f) {
+                        messageDao.updateMessageSpamScore(msg.id, newSpam, newProb)
+                    }
+                }
+            }
+
+            // If a sender sent confirmed threat/phishing/gambling spam, ensure their thread is cleanly moved to spam
+            for (spamSender in confirmedSpamSenders) {
+                messageDao.updateThreadSpamStatus(spamSender, isSpam = true)
+            }
         }
         } finally {
             isSyncing = false

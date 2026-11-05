@@ -4,6 +4,9 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -73,10 +77,18 @@ fun CustomizationAndSettingsDialog(
         }
     }
 
-    val tabs = listOf("Appearance", "AI & Filters", "Blacklist", "Notifications", "Data & Backup", "Update")
+    val tabs = listOf(
+        "Appearance" to Icons.Default.Palette,
+        "AI & Filters" to Icons.Default.Shield,
+        "Blacklist" to Icons.Default.Block,
+        "Notifications" to Icons.Default.Notifications,
+        "Data & Backup" to Icons.Default.Storage,
+        "Update" to Icons.Default.SystemUpdate
+    )
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        shape = RoundedCornerShape(24.dp),
         title = {
             Column {
                 Row(
@@ -104,23 +116,41 @@ fun CustomizationAndSettingsDialog(
 
                 Spacer(modifier = Modifier.height(10.dp))
 
-                // Scrollable/Flexible Tab Header
+                // Scrollable/Flexible Tab Header with Icons & Smooth Transitions
                 ScrollableTabRow(
                     selectedTabIndex = selectedSettingsTab,
                     containerColor = Color.Transparent,
                     contentColor = MaterialTheme.colorScheme.primary,
                     edgePadding = 0.dp
                 ) {
-                    tabs.forEachIndexed { index, title ->
+                    tabs.forEachIndexed { index, (title, icon) ->
+                        val isSelected = selectedSettingsTab == index
+                        val tabTint by animateColorAsState(
+                            targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            label = "tabTint_$index"
+                        )
                         Tab(
-                            selected = selectedSettingsTab == index,
+                            selected = isSelected,
                             onClick = { selectedSettingsTab = index },
                             text = {
-                                Text(
-                                    text = title,
-                                    fontWeight = if (selectedSettingsTab == index) FontWeight.Bold else FontWeight.Medium,
-                                    fontSize = 13.sp
-                                )
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.Center
+                                ) {
+                                    Icon(
+                                        imageVector = icon,
+                                        contentDescription = null,
+                                        tint = tabTint,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Text(
+                                        text = title,
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                        fontSize = 12.5.sp,
+                                        color = tabTint
+                                    )
+                                }
                             }
                         )
                     }
@@ -131,68 +161,82 @@ fun CustomizationAndSettingsDialog(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(max = 420.dp)
+                    .heightIn(min = 360.dp, max = 460.dp)
             ) {
-                when (selectedSettingsTab) {
-                    0 -> AppearanceTab(
-                        themeMode = themeMode,
-                        currentAccent = currentAccent,
-                        bubbleShape = bubbleShape,
-                        chatTextSize = chatTextSize,
-                        onThemeChange = { settings.setThemeMode(it) },
-                        onAccentChange = { settings.setAccentColor(it) },
-                        onBubbleChange = { settings.setBubbleShape(it) },
-                        onFontChange = { settings.setChatTextSize(it) }
-                    )
-                    1 -> AiFiltersTab(
-                        spamThreshold = spamThreshold,
-                        whitelistContacts = whitelistContacts,
-                        philippineShield = philippineShield,
-                        spamWordsCount = spamWordsCount,
-                        hamWordsCount = hamWordsCount,
-                        onThresholdChange = { settings.setSpamThreshold(it) },
-                        onWhitelistChange = { settings.setWhitelistContacts(it) },
-                        onShieldChange = { settings.setPhilippineShield(it) },
-                        onRescanClick = {
-                            scope.launch {
-                                repository.syncExistingSms(context, forceFullSync = true)
-                                Toast.makeText(context, "Rescanned phone SMS history", Toast.LENGTH_SHORT).show()
-                            }
+                AnimatedContent(
+                    targetState = selectedSettingsTab,
+                    transitionSpec = {
+                        if (targetState > initialState) {
+                            (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> (width * 0.25f).toInt() } + fadeIn(animationSpec = tween(200)))
+                                .togetherWith(slideOutHorizontally(animationSpec = tween(180, easing = FastOutLinearInEasing)) { width -> (-width * 0.25f).toInt() } + fadeOut(animationSpec = tween(150)))
+                        } else {
+                            (slideInHorizontally(animationSpec = tween(220, easing = FastOutSlowInEasing)) { width -> (-width * 0.25f).toInt() } + fadeIn(animationSpec = tween(200)))
+                                .togetherWith(slideOutHorizontally(animationSpec = tween(180, easing = FastOutLinearInEasing)) { width -> (width * 0.25f).toInt() } + fadeOut(animationSpec = tween(150)))
                         }
-                    )
-                    2 -> BlacklistTab(
-                        blockedNumbers = blockedNumbers.map { it.phoneNumber to it.reason },
-                        newNumber = newNumberToBlock,
-                        onNumberChange = { newNumberToBlock = it },
-                        onAddBlock = {
-                            if (newNumberToBlock.isNotBlank()) {
-                                val num = newNumberToBlock.trim()
-                                newNumberToBlock = ""
+                    },
+                    label = "settingsTabContent"
+                ) { currentTab ->
+                    when (currentTab) {
+                        0 -> AppearanceTab(
+                            themeMode = themeMode,
+                            currentAccent = currentAccent,
+                            bubbleShape = bubbleShape,
+                            chatTextSize = chatTextSize,
+                            onThemeChange = { settings.setThemeMode(it) },
+                            onAccentChange = { settings.setAccentColor(it) },
+                            onBubbleChange = { settings.setBubbleShape(it) },
+                            onFontChange = { settings.setChatTextSize(it) }
+                        )
+                        1 -> AiFiltersTab(
+                            spamThreshold = spamThreshold,
+                            whitelistContacts = whitelistContacts,
+                            philippineShield = philippineShield,
+                            spamWordsCount = spamWordsCount,
+                            hamWordsCount = hamWordsCount,
+                            onThresholdChange = { settings.setSpamThreshold(it) },
+                            onWhitelistChange = { settings.setWhitelistContacts(it) },
+                            onShieldChange = { settings.setPhilippineShield(it) },
+                            onRescanClick = {
                                 scope.launch {
-                                    repository.blockNumber(num)
-                                    Toast.makeText(context, "Number added to blacklist", Toast.LENGTH_SHORT).show()
+                                    repository.syncExistingSms(context, forceFullSync = true)
+                                    Toast.makeText(context, "Rescanned phone SMS history", Toast.LENGTH_SHORT).show()
                                 }
                             }
-                        },
-                        onUnblock = { num ->
-                            scope.launch {
-                                repository.unblockNumber(num)
-                                Toast.makeText(context, "Unblocked", Toast.LENGTH_SHORT).show()
+                        )
+                        2 -> BlacklistTab(
+                            blockedNumbers = blockedNumbers.map { it.phoneNumber to it.reason },
+                            newNumber = newNumberToBlock,
+                            onNumberChange = { newNumberToBlock = it },
+                            onAddBlock = {
+                                if (newNumberToBlock.isNotBlank()) {
+                                    val num = newNumberToBlock.trim()
+                                    newNumberToBlock = ""
+                                    scope.launch {
+                                        repository.blockNumber(num)
+                                        Toast.makeText(context, "Number added to blacklist", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
+                            },
+                            onUnblock = { num ->
+                                scope.launch {
+                                    repository.unblockNumber(num)
+                                    Toast.makeText(context, "Unblocked", Toast.LENGTH_SHORT).show()
+                                }
                             }
-                        }
-                    )
-                    3 -> NotificationsTab(
-                        privacy = notificationPrivacy,
-                        vibration = notificationVibration,
-                        biometricLock = biometricLock,
-                        onPrivacyChange = { settings.setNotificationPrivacy(it) },
-                        onVibrationChange = { settings.setNotificationVibration(it) },
-                        onBiometricLockChange = { settings.setBiometricLock(it) }
-                    )
-                    4 -> DataBackupTab(
-                        repository = repository
-                    )
-                    5 -> AboutAndUpdateTab()
+                        )
+                        3 -> NotificationsTab(
+                            privacy = notificationPrivacy,
+                            vibration = notificationVibration,
+                            biometricLock = biometricLock,
+                            onPrivacyChange = { settings.setNotificationPrivacy(it) },
+                            onVibrationChange = { settings.setNotificationVibration(it) },
+                            onBiometricLockChange = { settings.setBiometricLock(it) }
+                        )
+                        4 -> DataBackupTab(
+                            repository = repository
+                        )
+                        5 -> AboutAndUpdateTab()
+                    }
                 }
             }
         },
@@ -235,9 +279,19 @@ private fun AppearanceTab(
             ) {
                 AppThemeMode.values().forEach { mode ->
                     val isSelected = themeMode == mode
+                    val chipBg by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        animationSpec = tween(200),
+                        label = "themeChip_${mode.name}"
+                    )
+                    val chipText by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        animationSpec = tween(200),
+                        label = "themeText_${mode.name}"
+                    )
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        color = chipBg,
                         modifier = Modifier
                             .weight(1f)
                             .clickable { onThemeChange(mode) }
@@ -246,7 +300,7 @@ private fun AppearanceTab(
                             text = mode.title.split(" ")[0],
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            color = chipText,
                             modifier = Modifier.padding(vertical = 8.dp, horizontal = 2.dp),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
@@ -266,6 +320,14 @@ private fun AppearanceTab(
                 items(AvailableAccents) { palette ->
                     val isSelected = currentAccent == palette.colorValue
                     val color = Color(palette.colorValue)
+                    val circleScale by animateFloatAsState(
+                        targetValue = if (isSelected) 1.15f else 1.0f,
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioMediumBouncy,
+                            stiffness = Spring.StiffnessLow
+                        ),
+                        label = "accentScale_${palette.name}"
+                    )
 
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -273,6 +335,7 @@ private fun AppearanceTab(
                     ) {
                         Box(
                             modifier = Modifier
+                                .graphicsLayer(scaleX = circleScale, scaleY = circleScale)
                                 .size(36.dp)
                                 .clip(CircleShape)
                                 .background(color)
@@ -312,9 +375,19 @@ private fun AppearanceTab(
             ) {
                 BubbleShape.values().forEach { shape ->
                     val isSelected = bubbleShape == shape
+                    val chipBg by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        animationSpec = tween(200),
+                        label = "bubbleChip_${shape.name}"
+                    )
+                    val chipText by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        animationSpec = tween(200),
+                        label = "bubbleText_${shape.name}"
+                    )
                     Surface(
                         shape = RoundedCornerShape(shape.radiusDp.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        color = chipBg,
                         modifier = Modifier
                             .weight(1f)
                             .clickable { onBubbleChange(shape) }
@@ -323,7 +396,7 @@ private fun AppearanceTab(
                             text = shape.title,
                             fontSize = 11.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            color = chipText,
                             modifier = Modifier.padding(vertical = 10.dp, horizontal = 4.dp),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
@@ -342,9 +415,19 @@ private fun AppearanceTab(
             ) {
                 ChatTextSize.values().forEach { size ->
                     val isSelected = chatTextSize == size
+                    val chipBg by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        animationSpec = tween(200),
+                        label = "fontChip_${size.name}"
+                    )
+                    val chipText by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        animationSpec = tween(200),
+                        label = "fontText_${size.name}"
+                    )
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        color = chipBg,
                         modifier = Modifier
                             .weight(1f)
                             .clickable { onFontChange(size) }
@@ -389,10 +472,20 @@ private fun AiFiltersTab(
             ) {
                 val levels = listOf("Aggressive" to 0.60f, "Balanced" to 0.70f, "Strict" to 0.85f)
                 levels.forEach { (label, value) ->
-                    val isSelected = spamThreshold == value
+                    val isSelected = kotlin.math.abs(spamThreshold - value) < 0.01f
+                    val chipBg by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        animationSpec = tween(200),
+                        label = "aiLevelChip_$label"
+                    )
+                    val chipText by animateColorAsState(
+                        targetValue = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                        animationSpec = tween(200),
+                        label = "aiLevelText_$label"
+                    )
                     Surface(
                         shape = RoundedCornerShape(10.dp),
-                        color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        color = chipBg,
                         modifier = Modifier
                             .weight(1f)
                             .clickable { onThresholdChange(value) }
@@ -401,7 +494,7 @@ private fun AiFiltersTab(
                             text = label,
                             fontSize = 12.sp,
                             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                            color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            color = chipText,
                             modifier = Modifier.padding(vertical = 8.dp),
                             textAlign = androidx.compose.ui.text.style.TextAlign.Center
                         )
@@ -484,6 +577,7 @@ private fun AiFiltersTab(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BlacklistTab(
     blockedNumbers: List<Pair<String, String>>,
@@ -535,10 +629,19 @@ private fun BlacklistTab(
                 )
             }
         } else {
-            LazyColumn(modifier = Modifier.height(200.dp)) {
-                items(blockedNumbers) { (phone, reason) ->
+            LazyColumn(
+                modifier = Modifier.height(200.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                items(blockedNumbers, key = { it.first }) { (phone, reason) ->
                     Row(
                         modifier = Modifier
+                            .animateItemPlacement(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                )
+                            )
                             .fillMaxWidth()
                             .padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -575,9 +678,14 @@ private fun NotificationsTab(
 
         NotificationPrivacy.values().forEach { option ->
             val isSelected = privacy == option
+            val optionBg by animateColorAsState(
+                targetValue = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
+                animationSpec = tween(200),
+                label = "privacyBg_${option.name}"
+            )
             Surface(
                 shape = RoundedCornerShape(10.dp),
-                color = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant,
+                color = optionBg,
                 modifier = Modifier
                     .fillMaxWidth()
                     .clickable { onPrivacyChange(option) }
@@ -825,96 +933,108 @@ private fun AboutAndUpdateTab() {
 
                     Spacer(modifier = Modifier.height(12.dp))
 
-                    if (updateResult != null) {
-                        val info = updateResult!!
-                        if (info.hasUpdate) {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Column(modifier = Modifier.padding(10.dp)) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    AnimatedVisibility(
+                        visible = updateResult != null,
+                        enter = expandVertically(animationSpec = spring(dampingRatio = 0.85f)) + fadeIn(animationSpec = tween(200)),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        if (updateResult != null) {
+                            val info = updateResult!!
+                            if (info.hasUpdate) {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            Icon(
+                                                Icons.Default.NewReleases,
+                                                contentDescription = null,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(18.dp)
+                                            )
+                                            Spacer(modifier = Modifier.width(6.dp))
+                                            Text(
+                                                text = "New Update: ${info.latestVersion}",
+                                                fontWeight = FontWeight.Bold,
+                                                fontSize = 13.sp,
+                                                color = MaterialTheme.colorScheme.primary
+                                            )
+                                        }
+                                        if (info.releaseNotes.isNotBlank()) {
+                                            Spacer(modifier = Modifier.height(4.dp))
+                                            Text(
+                                                text = info.releaseNotes.take(180) + if (info.releaseNotes.length > 180) "..." else "",
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onSurface
+                                            )
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(10.dp))
+
+                                if (info.downloadUrl != null) {
+                                    Button(
+                                        onClick = {
+                                            AppUpdateManager.startDownload(context, info.downloadUrl, "MorpsSMS_${info.latestVersion}.apk")
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(10.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = MaterialTheme.colorScheme.primary,
+                                            contentColor = MaterialTheme.colorScheme.onPrimary
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text("Download & Install Update")
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                            } else {
+                                Surface(
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = RealmeHamGreen.copy(alpha = 0.15f),
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Row(
+                                        modifier = Modifier.padding(10.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
                                         Icon(
-                                            Icons.Default.NewReleases,
+                                            Icons.Default.CheckCircle,
                                             contentDescription = null,
-                                            tint = MaterialTheme.colorScheme.primary,
+                                            tint = RealmeHamGreen,
                                             modifier = Modifier.size(18.dp)
                                         )
-                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
                                         Text(
-                                            text = "New Update: ${info.latestVersion}",
-                                            fontWeight = FontWeight.Bold,
-                                            fontSize = 13.sp,
-                                            color = MaterialTheme.colorScheme.primary
-                                        )
-                                    }
-                                    if (info.releaseNotes.isNotBlank()) {
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        Text(
-                                            text = info.releaseNotes.take(180) + if (info.releaseNotes.length > 180) "..." else "",
-                                            fontSize = 11.sp,
-                                            color = MaterialTheme.colorScheme.onSurface
+                                            text = "You're on the latest version ($currentVersion)!",
+                                            fontSize = 12.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = RealmeHamGreen
                                         )
                                     }
                                 }
+                                Spacer(modifier = Modifier.height(10.dp))
                             }
-                            Spacer(modifier = Modifier.height(10.dp))
-
-                            if (info.downloadUrl != null) {
-                                Button(
-                                    onClick = {
-                                        AppUpdateManager.startDownload(context, info.downloadUrl, "MorpsSMS_${info.latestVersion}.apk")
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(10.dp),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = MaterialTheme.colorScheme.primary,
-                                        contentColor = MaterialTheme.colorScheme.onPrimary
-                                    )
-                                ) {
-                                    Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Text("Download & Install Update")
-                                }
-                                Spacer(modifier = Modifier.height(8.dp))
-                            }
-                        } else {
-                            Surface(
-                                shape = RoundedCornerShape(10.dp),
-                                color = RealmeHamGreen.copy(alpha = 0.15f),
-                                modifier = Modifier.fillMaxWidth()
-                            ) {
-                                Row(
-                                    modifier = Modifier.padding(10.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Icon(
-                                        Icons.Default.CheckCircle,
-                                        contentDescription = null,
-                                        tint = RealmeHamGreen,
-                                        modifier = Modifier.size(18.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "You're on the latest version ($currentVersion)!",
-                                        fontSize = 12.sp,
-                                        fontWeight = FontWeight.SemiBold,
-                                        color = RealmeHamGreen
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(10.dp))
                         }
                     }
 
-                    if (errorMessage != null) {
-                        Text(
-                            text = "Error: $errorMessage",
-                            color = RealmeSpamRed,
-                            fontSize = 11.sp
-                        )
-                        Spacer(modifier = Modifier.height(8.dp))
+                    AnimatedVisibility(
+                        visible = errorMessage != null,
+                        enter = expandVertically() + fadeIn(),
+                        exit = shrinkVertically() + fadeOut()
+                    ) {
+                        if (errorMessage != null) {
+                            Text(
+                                text = "Error: $errorMessage",
+                                color = RealmeSpamRed,
+                                fontSize = 11.sp
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                     }
 
                     // Check for Updates Button

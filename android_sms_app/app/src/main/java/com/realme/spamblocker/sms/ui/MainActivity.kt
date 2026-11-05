@@ -60,6 +60,19 @@ class MainActivity : FragmentActivity() {
                 )
             }
         }
+
+        // Automatic one-time deep re-scan on AI model upgrade
+        checkAndApplyAiUpgradeSync()
+    }
+
+    private fun checkAndApplyAiUpgradeSync() {
+        val prefs = getSharedPreferences("realme_sms_customization_prefs", Context.MODE_PRIVATE)
+        val lastModelVersion = prefs.getInt("pref_ai_model_version", 1)
+        val currentModelVersion = 3
+        if (lastModelVersion < currentModelVersion) {
+            prefs.edit().putInt("pref_ai_model_version", currentModelVersion).apply()
+            viewModel.syncExistingSms(this, forceFullSync = true)
+        }
     }
 
     private var lastSyncTime: Long = 0L

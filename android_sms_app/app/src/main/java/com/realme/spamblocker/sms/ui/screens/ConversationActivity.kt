@@ -1,14 +1,18 @@
 package com.realme.spamblocker.sms.ui.screens
 
+import android.app.Activity
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -76,6 +80,23 @@ class ConversationActivity : ComponentActivity() {
         }
     }
 
+    override fun finish() {
+        super.finish()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            overrideActivityTransition(
+                Activity.OVERRIDE_TRANSITION_CLOSE,
+                com.realme.spamblocker.sms.R.anim.slide_in_left,
+                com.realme.spamblocker.sms.R.anim.slide_out_right
+            )
+        } else {
+            @Suppress("DEPRECATION")
+            overridePendingTransition(
+                com.realme.spamblocker.sms.R.anim.slide_in_left,
+                com.realme.spamblocker.sms.R.anim.slide_out_right
+            )
+        }
+    }
+
     companion object {
         const val EXTRA_SENDER = "extra_sender"
         const val EXTRA_SENDER_NAME = "extra_sender_name"
@@ -88,11 +109,26 @@ class ConversationActivity : ComponentActivity() {
                 putExtra(EXTRA_IS_SPAM, isSpam)
             }
             context.startActivity(intent)
+            if (context is Activity) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    context.overrideActivityTransition(
+                        Activity.OVERRIDE_TRANSITION_OPEN,
+                        com.realme.spamblocker.sms.R.anim.slide_in_right,
+                        com.realme.spamblocker.sms.R.anim.slide_out_left
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    context.overridePendingTransition(
+                        com.realme.spamblocker.sms.R.anim.slide_in_right,
+                        com.realme.spamblocker.sms.R.anim.slide_out_left
+                    )
+                }
+            }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ConversationScreen(
     sender: String,
@@ -369,11 +405,27 @@ fun ConversationScreen(
                         shape = CircleShape,
                         modifier = Modifier.size(46.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
-                            modifier = Modifier.size(20.dp)
-                        )
+                        AnimatedContent(
+                            targetState = isSending,
+                            transitionSpec = {
+                                fadeIn(animationSpec = tween(150)) togetherWith fadeOut(animationSpec = tween(150))
+                            },
+                            label = "sendButtonAnimation"
+                        ) { sending ->
+                            if (sending) {
+                                CircularProgressIndicator(
+                                    modifier = Modifier.size(18.dp),
+                                    color = Color.Black,
+                                    strokeWidth = 2.dp
+                                )
+                            } else {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.Send,
+                                    contentDescription = "Send",
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -390,6 +442,12 @@ fun ConversationScreen(
         ) {
             items(messages, key = { it.id }) { message ->
                 ChatBubble(
+                    modifier = Modifier.animateItemPlacement(
+                        animationSpec = spring(
+                            dampingRatio = Spring.DampingRatioLowBouncy,
+                            stiffness = Spring.StiffnessLow
+                        )
+                    ),
                     message = message,
                     onLongClick = { activeMessageForAction = message },
                     onInspectUrl = { inspectingUrl = it }
@@ -410,8 +468,14 @@ fun ConversationScreen(
                 }
             },
             text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Select when to automatically send this message:")
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        text = "Automatically deliver this message at a future time:",
+                        fontSize = 13.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+
+                    // Quick presets
                     listOf(
                         "In 15 minutes" to (15 * 60 * 1000L),
                         "In 1 hour" to (60 * 60 * 1000L),
@@ -434,15 +498,87 @@ fun ConversationScreen(
                                         )
                                         .build()
                                     androidx.work.WorkManager.getInstance(context).enqueue(workRequest)
-                                    Toast.makeText(context, "Scheduled via WorkManager ($label) ⏰", Toast.LENGTH_SHORT).show()
+                                    Toast.makeText(context, "Scheduled: $label ⏰", Toast.LENGTH_SHORT).show()
                                 } else {
                                     Toast.makeText(context, "Please write a message first", Toast.LENGTH_SHORT).show()
                                 }
                             },
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
                             Text(label)
                         }
+                    }
+
+                    HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+
+                    // Custom Date & Time Picker
+                    Button(
+                        onClick = {
+                            if (textInput.isNotBlank()) {
+                                val msg = textInput.trim()
+                                showScheduleDialog = false
+                                val currentCal = Calendar.getInstance()
+                                val datePicker = android.app.DatePickerDialog(
+                                    context,
+                                    { _, year, month, dayOfMonth ->
+                                        val timePicker = android.app.TimePickerDialog(
+                                            context,
+                                            { _, hourOfDay, minute ->
+                                                val targetCal = Calendar.getInstance().apply {
+                                                    set(Calendar.YEAR, year)
+                                                    set(Calendar.MONTH, month)
+                                                    set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                                                    set(Calendar.HOUR_OF_DAY, hourOfDay)
+                                                    set(Calendar.MINUTE, minute)
+                                                    set(Calendar.SECOND, 0)
+                                                }
+                                                val delayMs = targetCal.timeInMillis - System.currentTimeMillis()
+                                                if (delayMs > 0) {
+                                                    textInput = ""
+                                                    val workRequest = androidx.work.OneTimeWorkRequestBuilder<com.realme.spamblocker.sms.worker.ScheduledSmsWorker>()
+                                                        .setInitialDelay(delayMs, java.util.concurrent.TimeUnit.MILLISECONDS)
+                                                        .setInputData(
+                                                            androidx.work.workDataOf(
+                                                                com.realme.spamblocker.sms.worker.ScheduledSmsWorker.KEY_RECIPIENT to sender,
+                                                                com.realme.spamblocker.sms.worker.ScheduledSmsWorker.KEY_BODY to msg,
+                                                                com.realme.spamblocker.sms.worker.ScheduledSmsWorker.KEY_SUB_ID to (currentSim?.subscriptionId ?: -1)
+                                                            )
+                                                        )
+                                                        .build()
+                                                    androidx.work.WorkManager.getInstance(context).enqueue(workRequest)
+                                                    val fmt = SimpleDateFormat("MMM d, yyyy h:mm a", Locale.getDefault())
+                                                    Toast.makeText(context, "Scheduled for ${fmt.format(targetCal.time)} ⏰", Toast.LENGTH_LONG).show()
+                                                } else {
+                                                    Toast.makeText(context, "Please pick a future time", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            currentCal.get(Calendar.HOUR_OF_DAY),
+                                            currentCal.get(Calendar.MINUTE) + 5,
+                                            false
+                                        )
+                                        timePicker.show()
+                                    },
+                                    currentCal.get(Calendar.YEAR),
+                                    currentCal.get(Calendar.MONTH),
+                                    currentCal.get(Calendar.DAY_OF_MONTH)
+                                )
+                                datePicker.datePicker.minDate = System.currentTimeMillis() - 1000L
+                                datePicker.show()
+                            } else {
+                                Toast.makeText(context, "Please write a message first", Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape = RoundedCornerShape(12.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = Color.Black
+                        )
+                    ) {
+                        Icon(Icons.Default.Event, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Pick Custom Date & Time...", fontWeight = FontWeight.Bold)
                     }
                 }
             },
@@ -695,7 +831,8 @@ fun ConversationScreen(
 fun ChatBubble(
     message: MessageEntity,
     onLongClick: () -> Unit,
-    onInspectUrl: (UrlInspection) -> Unit = {}
+    onInspectUrl: (UrlInspection) -> Unit = {},
+    modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val isOutgoing = message.isOutgoing
@@ -738,7 +875,7 @@ fun ChatBubble(
     val urls = remember(message.body) { SmartMessageAnalyzer.inspectUrls(message.body) }
 
     Box(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         contentAlignment = alignment
     ) {
         Column(

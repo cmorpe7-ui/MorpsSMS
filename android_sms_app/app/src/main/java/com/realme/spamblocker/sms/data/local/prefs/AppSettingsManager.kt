@@ -1,4 +1,4 @@
-package com.realme.spamblocker.sms.data.local.prefs
+﻿package com.realme.spamblocker.sms.data.local.prefs
 
 import android.content.Context
 import android.content.SharedPreferences

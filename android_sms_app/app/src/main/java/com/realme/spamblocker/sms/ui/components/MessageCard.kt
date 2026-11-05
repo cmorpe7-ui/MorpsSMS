@@ -4,8 +4,10 @@ import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.widget.Toast
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -27,6 +29,8 @@ import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
@@ -48,6 +52,7 @@ fun RealmeMessageCard(
     isSpamTab: Boolean,
     isSelectionMode: Boolean = false,
     isSelected: Boolean = false,
+    searchQuery: String = "",
     onCardClick: () -> Unit = {},
     onLongClick: () -> Unit = {},
     onTogglePin: () -> Unit = {},
@@ -93,11 +98,13 @@ fun RealmeMessageCard(
     val currentOffset = if (isDragging) dragOffset else animatedOffset
     val maxLeftRevealDp = 210.dp
     val maxLeftRevealPx = with(density) { maxLeftRevealDp.toPx() }
-    val rightSwipeThresholdDp = 80.dp
+    val rightSwipeThresholdDp = 75.dp
     val rightSwipeThresholdPx = with(density) { rightSwipeThresholdDp.toPx() }
+    val fullLeftSwipeThresholdDp = 155.dp
+    val fullLeftSwipeThresholdPx = with(density) { fullLeftSwipeThresholdDp.toPx() }
 
     val draggableState = rememberDraggableState { delta ->
-        dragOffset = (dragOffset + delta).coerceIn(-maxLeftRevealPx * 1.15f, rightSwipeThresholdPx * 1.5f)
+        dragOffset = (dragOffset + delta).coerceIn(-maxLeftRevealPx * 1.35f, rightSwipeThresholdPx * 1.5f)
     }
 
     Box(
@@ -250,11 +257,17 @@ fun RealmeMessageCard(
         }
 
         // 3. FOREGROUND MESSAGE CARD
+        val cardBgColor by animateColorAsState(
+            targetValue = if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.background,
+            animationSpec = tween(durationMillis = 200),
+            label = "cardSelectionBg"
+        )
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .offset { IntOffset(currentOffset.roundToInt(), 0) }
-                .background(if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.2f) else MaterialTheme.colorScheme.background)
+                .background(cardBgColor)
                 .combinedClickable(
                     onClick = {
                         if (targetOffsetX != 0f) {
@@ -276,9 +289,15 @@ fun RealmeMessageCard(
                     onDragStopped = { velocity ->
                         isDragging = false
                         if (dragOffset > rightSwipeThresholdPx) {
+                            // Direct Swipe Right: Toggle Read / Unread
                             targetOffsetX = 0f
                             onMarkUnread()
-                        } else if (dragOffset < -rightSwipeThresholdPx || velocity < -500f) {
+                        } else if (dragOffset < -fullLeftSwipeThresholdPx || velocity < -800f) {
+                            // Deep Swipe Left: Directly Move to Spam (or Delete if in Spam)
+                            targetOffsetX = 0f
+                            if (isSpamTab) onDelete() else onMarkAsSpam()
+                        } else if (dragOffset < -rightSwipeThresholdPx || velocity < -300f) {
+                            // Partial Swipe Left: Reveal tray buttons
                             targetOffsetX = -maxLeftRevealPx
                         } else {
                             targetOffsetX = 0f
@@ -338,7 +357,7 @@ fun RealmeMessageCard(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = displayName,
+                                text = buildHighlightedText(displayName, searchQuery, highlightColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
                                 fontWeight = if (!message.isRead) FontWeight.Bold else FontWeight.Medium,
                                 fontSize = 16.sp,
                                 maxLines = 1,
@@ -398,9 +417,9 @@ fun RealmeMessageCard(
 
                         Spacer(modifier = Modifier.height(3.dp))
 
-                        // Bottom Line: Message preview
+                        // Bottom Line: Message preview with search highlighting
                         Text(
-                            text = message.body,
+                            text = buildHighlightedText(message.body, searchQuery, highlightColor = Color(0xFFFFD54F).copy(alpha = 0.40f)),
                             fontSize = 13.5.sp,
                             fontWeight = if (!message.isRead) FontWeight.Medium else FontWeight.Normal,
                             maxLines = 2,
@@ -583,4 +602,36 @@ private fun rememberFormattedDate(timestamp: Long): String {
             dateFormatter.format(Date(timestamp))
         }
     }
+}
+
+private fun buildHighlightedText(
+    fullText: String,
+    query: String,
+    highlightColor: Color = Color(0xFFFFD54F).copy(alpha = 0.45f)
+): AnnotatedString {
+    if (query.isBlank()) return AnnotatedString(fullText)
+    val builder = AnnotatedString.Builder()
+    val lowerFull = fullText.lowercase()
+    val lowerQuery = query.trim().lowercase()
+    var currentIndex = 0
+    while (currentIndex < fullText.length) {
+        val index = lowerFull.indexOf(lowerQuery, currentIndex)
+        if (index == -1) {
+            builder.append(fullText.substring(currentIndex))
+            break
+        }
+        if (index > currentIndex) {
+            builder.append(fullText.substring(currentIndex, index))
+        }
+        builder.pushStyle(
+            SpanStyle(
+                background = highlightColor,
+                fontWeight = FontWeight.Bold
+            )
+        )
+        builder.append(fullText.substring(index, index + lowerQuery.length))
+        builder.pop()
+        currentIndex = index + lowerQuery.length
+    }
+    return builder.toAnnotatedString()
 }

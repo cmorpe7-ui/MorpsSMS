@@ -2,12 +2,15 @@ package com.realme.spamblocker.sms.ui.screens
 
 import android.widget.Toast
 import androidx.compose.animation.*
+import androidx.compose.animation.core.*
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -20,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,7 +45,7 @@ import com.realme.spamblocker.sms.util.BiometricUtils
 import java.text.SimpleDateFormat
 import java.util.*
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun HomeScreen(
     viewModel: MessagesViewModel,
@@ -50,6 +54,7 @@ fun HomeScreen(
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val settingsManager = remember { AppSettingsManager.getInstance(context) }
+    val listState = rememberLazyListState()
 
     var isViewingSpam by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -135,8 +140,10 @@ fun HomeScreen(
                 // 1. SELECTION MODE TOP BAR
                 AnimatedVisibility(
                     visible = isSelectionMode,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
+                    enter = fadeIn(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                            expandVertically(animationSpec = spring(dampingRatio = 0.9f, stiffness = 400f)),
+                    exit = fadeOut(animationSpec = tween(150, easing = FastOutLinearInEasing)) +
+                            shrinkVertically(animationSpec = tween(150, easing = FastOutLinearInEasing))
                 ) {
                     Row(
                         modifier = Modifier
@@ -220,8 +227,10 @@ fun HomeScreen(
                 // 2. STANDARD REALME UI HEADER (Matching screenshot 1:1)
                 AnimatedVisibility(
                     visible = !isSelectionMode && !isSearching,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
+                    enter = fadeIn(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                            expandVertically(animationSpec = spring(dampingRatio = 0.9f, stiffness = 400f)),
+                    exit = fadeOut(animationSpec = tween(150, easing = FastOutLinearInEasing)) +
+                            shrinkVertically(animationSpec = tween(150, easing = FastOutLinearInEasing))
                 ) {
                     Row(
                         modifier = Modifier
@@ -408,8 +417,10 @@ fun HomeScreen(
                 // 3. SEARCH FIELD
                 AnimatedVisibility(
                     visible = isSearching && !isSelectionMode,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
+                    enter = fadeIn(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                            expandVertically(animationSpec = spring(dampingRatio = 0.9f, stiffness = 400f)),
+                    exit = fadeOut(animationSpec = tween(150, easing = FastOutLinearInEasing)) +
+                            shrinkVertically(animationSpec = tween(150, easing = FastOutLinearInEasing))
                 ) {
                     OutlinedTextField(
                         value = searchQuery,
@@ -442,8 +453,10 @@ fun HomeScreen(
                 // 4. TINY CATEGORIES ROW (Matching realme UI)
                 AnimatedVisibility(
                     visible = !isViewingSpam && !isSelectionMode && !isSearching,
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
+                    enter = fadeIn(animationSpec = tween(200, easing = FastOutSlowInEasing)) +
+                            expandVertically(animationSpec = spring(dampingRatio = 0.9f, stiffness = 400f)),
+                    exit = fadeOut(animationSpec = tween(150, easing = FastOutLinearInEasing)) +
+                            shrinkVertically(animationSpec = tween(150, easing = FastOutLinearInEasing))
                 ) {
                     Row(
                         modifier = Modifier
@@ -455,10 +468,29 @@ fun HomeScreen(
                     ) {
                         MessageCategory.values().forEach { category ->
                             val isSelected = (selectedCategory == category)
+                            val targetBgColor = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant
+                            val categoryBgColor by animateColorAsState(
+                                targetValue = targetBgColor,
+                                animationSpec = tween(durationMillis = 200, easing = FastOutSlowInEasing),
+                                label = "categoryBg_${category.name}"
+                            )
+                            val targetBorderColor = if (!isSelected) MaterialTheme.colorScheme.outline else Color.Transparent
+                            val categoryBorderColor by animateColorAsState(
+                                targetValue = targetBorderColor,
+                                animationSpec = tween(durationMillis = 200),
+                                label = "categoryBorder_${category.name}"
+                            )
+                            val targetContentColor = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant
+                            val categoryContentColor by animateColorAsState(
+                                targetValue = targetContentColor,
+                                animationSpec = tween(durationMillis = 200),
+                                label = "categoryContent_${category.name}"
+                            )
+
                             Surface(
                                 shape = RoundedCornerShape(14.dp),
-                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
-                                border = if (!isSelected) BorderStroke(0.8.dp, MaterialTheme.colorScheme.outline) else null,
+                                color = categoryBgColor,
+                                border = if (!isSelected) BorderStroke(0.8.dp, categoryBorderColor) else null,
                                 onClick = { settingsManager.setSelectedCategory(category) },
                                 modifier = Modifier.height(28.dp)
                             ) {
@@ -466,13 +498,14 @@ fun HomeScreen(
                                     modifier = Modifier.padding(horizontal = 10.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    val (icon, iconTint) = when (category) {
-                                        MessageCategory.ALL -> Icons.Default.AllInbox to (if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
-                                        MessageCategory.PERSONAL -> Icons.Default.Person to (if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
-                                        MessageCategory.TRANSACTIONS -> Icons.Default.AccountBalanceWallet to (if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
-                                        MessageCategory.PROMOTIONS -> Icons.Default.LocalOffer to (if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant)
-                                        MessageCategory.STARRED -> Icons.Default.Star to (if (isSelected) MaterialTheme.colorScheme.onPrimary else Color(0xFFFFB300))
+                                    val icon = when (category) {
+                                        MessageCategory.ALL -> Icons.Default.AllInbox
+                                        MessageCategory.PERSONAL -> Icons.Default.Person
+                                        MessageCategory.TRANSACTIONS -> Icons.Default.AccountBalanceWallet
+                                        MessageCategory.PROMOTIONS -> Icons.Default.LocalOffer
+                                        MessageCategory.STARRED -> Icons.Default.Star
                                     }
+                                    val iconTint = if (category == MessageCategory.STARRED && !isSelected) Color(0xFFFFB300) else categoryContentColor
                                     Icon(
                                         imageVector = icon,
                                         contentDescription = null,
@@ -484,7 +517,7 @@ fun HomeScreen(
                                         text = if (category == MessageCategory.STARRED && starredMessages.isNotEmpty()) "Starred (${starredMessages.size})" else category.title,
                                         fontSize = 11.5.sp,
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
-                                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                        color = categoryContentColor,
                                         letterSpacing = 0.2.sp
                                     )
                                 }
@@ -495,7 +528,16 @@ fun HomeScreen(
             }
         },
         floatingActionButton = {
-            if (!isSelectionMode && !isViewingSpam) {
+            val isFabVisible by remember {
+                derivedStateOf {
+                    listState.firstVisibleItemIndex == 0 || !listState.isScrollInProgress
+                }
+            }
+            AnimatedVisibility(
+                visible = !isSelectionMode && !isViewingSpam && isFabVisible,
+                enter = scaleIn(animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy)) + fadeIn(animationSpec = tween(150)),
+                exit = scaleOut(animationSpec = tween(120)) + fadeOut(animationSpec = tween(100))
+            ) {
                 FloatingActionButton(
                     onClick = onComposeClick,
                     containerColor = MaterialTheme.colorScheme.primary,
@@ -529,6 +571,7 @@ fun HomeScreen(
                 )
             } else {
                 LazyColumn(
+                    state = listState,
                     modifier = Modifier
                         .fillMaxSize()
                         .background(MaterialTheme.colorScheme.background),
@@ -539,10 +582,17 @@ fun HomeScreen(
                         val isSelected = selectedThreads.contains(message.sender)
 
                         RealmeMessageCard(
+                            modifier = Modifier.animateItemPlacement(
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                    stiffness = Spring.StiffnessLow
+                                )
+                            ),
                             message = message,
                             isSpamTab = isViewingSpam,
                             isSelectionMode = isSelectionMode,
                             isSelected = isSelected,
+                            searchQuery = searchQuery,
                             onCardClick = {
                                 if (isSelectionMode) {
                                     viewModel.toggleSelectThread(message.sender)
@@ -567,9 +617,18 @@ fun HomeScreen(
                                 ).show()
                             },
                             onToggleStar = { viewModel.toggleStar(message) },
-                            onMarkAsSpam = { viewModel.markAsSpam(message) },
-                            onMarkAsNotSpam = { viewModel.markAsNotSpam(message) },
-                            onDelete = { viewModel.deleteThread(message.sender) },
+                            onMarkAsSpam = {
+                                viewModel.markAsSpam(message)
+                                Toast.makeText(context, "Moved to Spam & blocked 🛡️", Toast.LENGTH_SHORT).show()
+                            },
+                            onMarkAsNotSpam = {
+                                viewModel.markAsNotSpam(message)
+                                Toast.makeText(context, "Restored to Inbox", Toast.LENGTH_SHORT).show()
+                            },
+                            onDelete = {
+                                viewModel.deleteThread(message.sender)
+                                Toast.makeText(context, "Conversation deleted", Toast.LENGTH_SHORT).show()
+                            },
                             onDeleteAndSpam = { viewModel.deleteAndMarkSpam(message) },
                             onMarkUnread = {
                                 viewModel.toggleReadStatus(message)
@@ -688,6 +747,17 @@ private fun EmptyStateView(
         else -> Icons.Default.ChatBubbleOutline to "No messages"
     }
 
+    val infiniteTransition = rememberInfiniteTransition(label = "emptyStatePulse")
+    val pulseScale by infiniteTransition.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.04f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1800, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseScale"
+    )
+
     Box(
         modifier = modifier,
         contentAlignment = Alignment.Center
@@ -700,7 +770,9 @@ private fun EmptyStateView(
                 imageVector = emptyIcon,
                 contentDescription = null,
                 tint = Color(0xFF333338),
-                modifier = Modifier.size(64.dp)
+                modifier = Modifier
+                    .size(64.dp)
+                    .graphicsLayer(scaleX = pulseScale, scaleY = pulseScale)
             )
             Spacer(modifier = Modifier.height(16.dp))
             Text(
