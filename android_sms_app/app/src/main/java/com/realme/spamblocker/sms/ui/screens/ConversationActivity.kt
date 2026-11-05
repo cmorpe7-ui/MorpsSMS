@@ -845,7 +845,7 @@ fun ChatBubble(
 
     val bubbleShape = remember(bubbleShapeMode, isOutgoing) {
         when (bubbleShapeMode) {
-            BubbleShape.COLOROS -> RoundedCornerShape(
+            BubbleShape.SMOOTH -> RoundedCornerShape(
                 topStart = 18.dp,
                 topEnd = 18.dp,
                 bottomStart = if (isOutgoing) 18.dp else 4.dp,

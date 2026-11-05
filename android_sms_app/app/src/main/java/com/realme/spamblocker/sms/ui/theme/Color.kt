@@ -7,7 +7,7 @@ val RealmeYellow = Color(0xFFFFC915)         // Signature realme Yellow
 val RealmeYellowDark = Color(0xFFD4A000)
 val RealmeElectricBlue = Color(0xFF0066FF)   // Secondary realme Blue accent
 
-// Backgrounds & Surfaces (ColorOS / realme aesthetic)
+// Backgrounds & Surfaces (Modern sleek aesthetic)
 val RealmeLightBg = Color(0xFFF7F8FA)
 val RealmeLightSurface = Color(0xFFFFFFFF)
 val RealmeLightBorder = Color(0xFFE5E7EB)

@@ -895,7 +895,7 @@ private fun AboutAndUpdateTab() {
                     Spacer(modifier = Modifier.height(6.dp))
                     Text("MorpsSMS", fontWeight = FontWeight.Bold, fontSize = 18.sp)
                     Text(
-                        "realme UI & ColorOS Spam Blocker",
+                        "Smart On-Device AI Spam Blocker",
                         fontSize = 12.sp,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )

@@ -1,6 +1,6 @@
 # MorpsSMS 📱🛡️
 
-> **A fast, privacy-focused Android SMS messenger with realme UI / ColorOS aesthetics and 100% on-device AI Spam & Scam Protection.**
+> **A fast, privacy-focused Android SMS messenger with modern sleek aesthetics and 100% on-device AI Spam & Scam Protection.**
 
 ---
 
@@ -8,13 +8,13 @@
 
 - **🛡️ 100% On-Device AI Spam Classifier**: Powered by an incremental Naive Bayes machine learning engine. Zero cloud data transmission — your SMS messages and privacy never leave your phone.
 - **🇵🇭 Philippine Scam Shield**: Specialized heuristics detecting GCash, Maya, Casino, unauthorized job offers, and predatory online lending scam patterns.
-- **🎨 realme UI / ColorOS Design**: Sleek typography, fluid animations, customizable chat bubbles, and dynamic accent color palettes (*realme Blue, realme Yellow, Emerald Green, Sunset Orange, Cyberpunk Purple, and Flamingo Pink*).
+- **🎨 Modern Sleek Design**: Sleek typography, fluid animations, customizable chat bubbles, and dynamic accent color palettes (*realme Blue, realme Yellow, Emerald Green, Sunset Orange, Cyberpunk Purple, and Flamingo Pink*).
 - **🌓 Adaptive Theme Engine**: Native Light Mode, Dark Mode, and true AMOLED pitch-black mode with synchronized system bars.
 - **📂 Smart Category Filters**: Instantly sort and view chats by **All**, **Unread**, **Personal**, **Transactions**, **Promotions**, and **Spam**.
 - **📌 Pin & Star Messages**: Pin critical conversations to the top of the inbox and star important messages inside any thread.
 - **🖼️ Contact Photo Integration**: Automatically links and displays contact photos directly from your phone's address book with fallback initials avatars.
 - **📶 Multi-SIM Support**: Effortlessly switch SIM slots for incoming and outgoing SMS.
-- **👉 Swipe Gestures**: Swipe right to toggle Mark as Read/Unread; swipe left to move directly to Spam or Delete with fluid ColorOS haptics.
+- **👉 Swipe Gestures**: Swipe right to toggle Mark as Read/Unread; swipe left to move directly to Spam or Delete with fluid interactive feedback.
 - **🔍 Search Highlighting**: Real-time keyword & contact highlighting across conversation cards.
 - **⏰ Scheduled SMS**: Schedule SMS delivery with presets or exact custom Date & Time pickers using reliable background WorkManager.
 - **⚡ Quick Actions**: Mark as read or reply directly from heads-up notification cards.

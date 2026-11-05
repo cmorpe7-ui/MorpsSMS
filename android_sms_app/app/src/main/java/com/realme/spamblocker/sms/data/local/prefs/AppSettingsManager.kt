@@ -1,4 +1,4 @@
-﻿package com.realme.spamblocker.sms.data.local.prefs
+package com.realme.spamblocker.sms.data.local.prefs
 
 import android.content.Context
 import android.content.SharedPreferences
@@ -30,8 +30,20 @@ val AvailableAccents = listOf(
 
 enum class BubbleShape(val title: String, val radiusDp: Int) {
     COMPACT("Classic", 10),
-    COLOROS("ColorOS Smooth", 18),
-    PILL("Pill Round", 26)
+    SMOOTH("Modern Smooth", 18),
+    PILL("Pill Round", 26);
+
+    companion object {
+        fun fromName(name: String?): BubbleShape {
+            if (name == null) return SMOOTH
+            return when {
+                name.contains("COLOR", ignoreCase = true) || name.equals("SMOOTH", ignoreCase = true) -> SMOOTH
+                name.equals("COMPACT", ignoreCase = true) -> COMPACT
+                name.equals("PILL", ignoreCase = true) -> PILL
+                else -> SMOOTH
+            }
+        }
+    }
 }
 
 enum class ChatTextSize(val title: String, val sizeSp: Int) {
@@ -66,7 +78,7 @@ class AppSettingsManager private constructor(context: Context) {
 
     // 3. Bubble Shape
     private val _bubbleShape = MutableStateFlow(
-        BubbleShape.valueOf(prefs.getString(KEY_BUBBLE_SHAPE, BubbleShape.COLOROS.name) ?: BubbleShape.COLOROS.name)
+        BubbleShape.fromName(prefs.getString(KEY_BUBBLE_SHAPE, BubbleShape.SMOOTH.name))
     )
     val bubbleShape: StateFlow<BubbleShape> = _bubbleShape.asStateFlow()
 
