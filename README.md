@@ -26,7 +26,7 @@
 
 Grab the latest APK directly from the [Releases](https://github.com/cmorpe7-ui/MorpsSMS/releases) page:
 
-1. Download **`MorpsSMS-v2.2.0.apk`**.
+1. Download **`MorpsSMS-v2.2.1.apk`**.
 2. Tap the downloaded file on your Android device to install.
 3. Open **MorpsSMS** and set it as your default SMS application to enable full spam blocking and delivery features.
 

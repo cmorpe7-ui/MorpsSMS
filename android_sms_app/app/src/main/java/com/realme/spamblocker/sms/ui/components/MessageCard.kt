@@ -587,19 +587,54 @@ fun RealmeMessageCard(
     }
 }
 
-private val timeFormatter = SimpleDateFormat("h:mm a", Locale.getDefault())
-private val dateFormatter = SimpleDateFormat("M/d/yyyy", Locale.getDefault())
-
 @Composable
-private fun rememberFormattedDate(timestamp: Long): String {
-    return remember(timestamp) {
-        val isToday = android.text.format.DateUtils.isToday(timestamp)
-        if (isToday) {
-            timeFormatter.format(Date(timestamp))
-        } else if (android.text.format.DateUtils.isToday(timestamp + 86400000L)) {
-            "Yesterday"
-        } else {
-            dateFormatter.format(Date(timestamp))
+private fun rememberFormattedDate(rawTimestamp: Long): String {
+    return remember(rawTimestamp) {
+        if (rawTimestamp <= 0L) return@remember ""
+        val timestamp = if (rawTimestamp in 1L..99999999999L) rawTimestamp * 1000L else rawTimestamp
+
+        val now = Calendar.getInstance()
+        val nowMidnight = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val msgCal = Calendar.getInstance().apply { timeInMillis = timestamp }
+        val msgMidnight = Calendar.getInstance().apply {
+            timeInMillis = timestamp
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val diffDays = ((nowMidnight - msgMidnight) / (24 * 60 * 60 * 1000L)).toInt()
+        val nowYear = now.get(Calendar.YEAR)
+        val msgYear = msgCal.get(Calendar.YEAR)
+
+        when {
+            // Same calendar day: e.g. "2:30 PM"
+            diffDays <= 0 -> {
+                SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(timestamp))
+            }
+            // Yesterday
+            diffDays == 1 -> {
+                "Yesterday"
+            }
+            // Within past 6 days: Day of week (e.g. "Mon", "Wed")
+            diffDays in 2..6 -> {
+                SimpleDateFormat("EEE", Locale.getDefault()).format(Date(timestamp))
+            }
+            // Same year: e.g. "MMM d" (e.g. "Nov 3", "Oct 15")
+            nowYear == msgYear -> {
+                SimpleDateFormat("MMM d", Locale.getDefault()).format(Date(timestamp))
+            }
+            // Older year: e.g. "M/d/yy"
+            else -> {
+                SimpleDateFormat("M/d/yy", Locale.getDefault()).format(Date(timestamp))
+            }
         }
     }
 }

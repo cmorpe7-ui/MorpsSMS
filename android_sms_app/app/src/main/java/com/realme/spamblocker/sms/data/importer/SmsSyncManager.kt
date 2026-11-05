@@ -69,10 +69,10 @@ object SmsSyncManager {
         val whitelist = settings.whitelistContacts.value
         val phShield = settings.philippineShield.value
 
-        val existingTimestamps = if (latestTimestamp != null && latestTimestamp > 0) {
-            messageDao.getTimestampsSince(latestTimestamp - 5000L).toHashSet()
+        val existingKeys = if (latestTimestamp != null && latestTimestamp > 0) {
+            messageDao.getMessageKeysSince(latestTimestamp - 5000L).toHashSet()
         } else {
-            messageDao.getAllTimestamps().toHashSet()
+            messageDao.getAllMessageKeys().toHashSet()
         }
 
         val messagesToInsert = mutableListOf<MessageEntity>()
@@ -88,15 +88,17 @@ object SmsSyncManager {
             while (it.moveToNext()) {
                 val address = if (addressIndex != -1) it.getString(addressIndex) ?: "Unknown" else "Unknown"
                 val body = if (bodyIndex != -1) it.getString(bodyIndex) ?: "" else ""
-                val date = if (dateIndex != -1) it.getLong(dateIndex) else System.currentTimeMillis()
+                val rawDate = if (dateIndex != -1) it.getLong(dateIndex) else System.currentTimeMillis()
+                val date = if (rawDate in 1L..99999999999L) rawDate * 1000L else if (rawDate > 0) rawDate else System.currentTimeMillis()
                 val type = if (typeIndex != -1) it.getInt(typeIndex) else Telephony.Sms.MESSAGE_TYPE_INBOX
                 val isRead = if (readIndex != -1) it.getInt(readIndex) == 1 else true
 
+                val messageKey = "$address:$date"
                 // Instant in-memory check without touching database
-                if (existingTimestamps.contains(date)) {
+                if (existingKeys.contains(messageKey)) {
                     continue
                 }
-                existingTimestamps.add(date)
+                existingKeys.add(messageKey)
 
                 val isOutgoing = (type == Telephony.Sms.MESSAGE_TYPE_SENT)
                 val contactDetails = localContactCache.getOrPut(address) {
@@ -146,6 +148,9 @@ object SmsSyncManager {
         }
 
         if (messagesToInsert.isNotEmpty()) {
+            // Reverse so oldest message is inserted first (lowest auto-increment id)
+            // and newest message is inserted last (highest id), keeping id order aligned with timestamp.
+            messagesToInsert.reverse()
             messageDao.insertAll(messagesToInsert)
         }
 

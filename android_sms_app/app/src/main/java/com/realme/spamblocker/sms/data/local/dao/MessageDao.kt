@@ -9,19 +9,31 @@ interface MessageDao {
 
     // Distinct latest message per conversation thread in Inbox, with pinned chats at the top!
     @Query("""
-        SELECT * FROM messages 
-        WHERE isSpam = 0 
-        AND id IN (SELECT MAX(id) FROM messages WHERE isSpam = 0 GROUP BY sender)
-        ORDER BY isPinned DESC, timestamp DESC
+        SELECT m.* FROM messages m
+        INNER JOIN (
+            SELECT sender, MAX(timestamp) AS max_timestamp
+            FROM messages
+            WHERE isSpam = 0
+            GROUP BY sender
+        ) latest ON m.sender = latest.sender AND m.timestamp = latest.max_timestamp
+        WHERE m.isSpam = 0
+        GROUP BY m.sender
+        ORDER BY m.isPinned DESC, m.timestamp DESC
     """)
     fun getInboxConversations(): Flow<List<MessageEntity>>
 
     // Distinct latest message per conversation thread in Spam
     @Query("""
-        SELECT * FROM messages 
-        WHERE isSpam = 1 
-        AND id IN (SELECT MAX(id) FROM messages WHERE isSpam = 1 GROUP BY sender)
-        ORDER BY timestamp DESC
+        SELECT m.* FROM messages m
+        INNER JOIN (
+            SELECT sender, MAX(timestamp) AS max_timestamp
+            FROM messages
+            WHERE isSpam = 1
+            GROUP BY sender
+        ) latest ON m.sender = latest.sender AND m.timestamp = latest.max_timestamp
+        WHERE m.isSpam = 1
+        GROUP BY m.sender
+        ORDER BY m.timestamp DESC
     """)
     fun getSpamConversations(): Flow<List<MessageEntity>>
 
@@ -42,11 +54,17 @@ interface MessageDao {
 
     // Search query across sender name, number, or message body
     @Query("""
-        SELECT * FROM messages 
-        WHERE isSpam = 0 
-        AND (sender LIKE '%' || :query || '%' OR senderName LIKE '%' || :query || '%' OR body LIKE '%' || :query || '%')
-        AND id IN (SELECT MAX(id) FROM messages WHERE isSpam = 0 GROUP BY sender)
-        ORDER BY isPinned DESC, timestamp DESC
+        SELECT m.* FROM messages m
+        INNER JOIN (
+            SELECT sender, MAX(timestamp) AS max_timestamp
+            FROM messages
+            WHERE isSpam = 0
+            GROUP BY sender
+        ) latest ON m.sender = latest.sender AND m.timestamp = latest.max_timestamp
+        WHERE m.isSpam = 0
+        AND (m.sender LIKE '%' || :query || '%' OR m.senderName LIKE '%' || :query || '%' OR m.body LIKE '%' || :query || '%')
+        GROUP BY m.sender
+        ORDER BY m.isPinned DESC, m.timestamp DESC
     """)
     fun searchInbox(query: String): Flow<List<MessageEntity>>
 
@@ -103,6 +121,12 @@ interface MessageDao {
 
     @Query("SELECT timestamp FROM messages")
     suspend fun getAllTimestamps(): List<Long>
+
+    @Query("SELECT sender || ':' || timestamp FROM messages")
+    suspend fun getAllMessageKeys(): List<String>
+
+    @Query("SELECT sender || ':' || timestamp FROM messages WHERE timestamp >= :sinceTimestamp")
+    suspend fun getMessageKeysSince(sinceTimestamp: Long): List<String>
 
     @Query("SELECT * FROM messages WHERE isStarred = 1 ORDER BY timestamp DESC")
     fun getStarredMessages(): Flow<List<MessageEntity>>

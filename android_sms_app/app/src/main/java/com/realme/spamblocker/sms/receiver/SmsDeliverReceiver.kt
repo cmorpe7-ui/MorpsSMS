@@ -42,13 +42,17 @@ class SmsDeliverReceiver : BroadcastReceiver() {
                 val contactName = contactDetails.name
                 val photoUri = contactDetails.photoUri
 
+                val rawTimestamp = messages.firstOrNull()?.timestampMillis ?: System.currentTimeMillis()
+                val timestamp = if (rawTimestamp in 1L..99999999999L) rawTimestamp * 1000L else if (rawTimestamp > 0) rawTimestamp else System.currentTimeMillis()
+
                 // 2. Classify and Save
                 val savedMessage = repository.saveIncomingMessage(
                     sender = sender,
                     senderName = contactName,
                     body = fullBody,
                     isContact = isContact,
-                    contactPhotoUri = photoUri
+                    contactPhotoUri = photoUri,
+                    timestamp = timestamp
                 )
 
                 // 3. If legitimate (Ham): write to Android system provider, copy OTP to clipboard, and notify

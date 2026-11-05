@@ -689,7 +689,8 @@ fun HomeScreen(
                                     ) {
                                         Column {
                                             Text(tx.serviceOrMerchant ?: "Payment", fontWeight = FontWeight.Bold, fontSize = 13.sp, color = Color.White)
-                                            val dateStr = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(tx.timestamp))
+                                            val normTimestamp = if (tx.timestamp in 1L..99999999999L) tx.timestamp * 1000L else tx.timestamp
+                                            val dateStr = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault()).format(Date(normTimestamp))
                                             Text(dateStr, fontSize = 11.sp, color = Color.Gray)
                                         }
                                         Text(

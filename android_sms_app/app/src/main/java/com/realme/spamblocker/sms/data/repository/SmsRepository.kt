@@ -41,7 +41,8 @@ class SmsRepository(
         senderName: String?,
         body: String,
         isContact: Boolean,
-        contactPhotoUri: String? = null
+        contactPhotoUri: String? = null,
+        timestamp: Long = System.currentTimeMillis()
     ): MessageEntity {
         // 1. Manual Blacklist check: If explicitly blocked, mark as spam immediately
         val isExplicitlyBlocked = blockedNumberDao.isBlocked(sender)
@@ -73,11 +74,13 @@ class SmsRepository(
             }
         }
 
+        val normalizedTimestamp = if (timestamp in 1L..99999999999L) timestamp * 1000L else if (timestamp > 0) timestamp else System.currentTimeMillis()
+
         val entity = MessageEntity(
             sender = sender,
             senderName = senderName,
             body = body,
-            timestamp = System.currentTimeMillis(),
+            timestamp = normalizedTimestamp,
             isSpam = isSpam,
             spamProbability = spamProbability,
             isRead = false,

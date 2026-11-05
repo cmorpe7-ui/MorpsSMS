@@ -21,6 +21,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -440,7 +441,11 @@ fun ConversationScreen(
             verticalArrangement = Arrangement.spacedBy(8.dp),
             contentPadding = PaddingValues(vertical = 12.dp)
         ) {
-            items(messages, key = { it.id }) { message ->
+            itemsIndexed(messages, key = { _, message -> message.id }) { index, message ->
+                val showDateHeader = index == 0 || !isSameDay(messages[index - 1].timestamp, message.timestamp)
+                if (showDateHeader) {
+                    DateDivider(dateText = formatHeaderDate(message.timestamp))
+                }
                 ChatBubble(
                     modifier = Modifier.animateItemPlacement(
                         animationSpec = spring(
@@ -868,7 +873,8 @@ fun ChatBubble(
         MaterialTheme.colorScheme.onSurface
     }
     val timeFormatted = remember(message.timestamp) {
-        SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(message.timestamp))
+        val norm = if (message.timestamp in 1L..99999999999L) message.timestamp * 1000L else message.timestamp
+        SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(norm))
     }
 
     val detectedOtp = remember(message.body) { SmartMessageAnalyzer.extractOtp(message.body) }
@@ -983,4 +989,68 @@ fun ChatBubble(
             }
         }
     }
+}
+
+@Composable
+private fun DateDivider(dateText: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Surface(
+            shape = RoundedCornerShape(12.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.65f)
+        ) {
+            Text(
+                text = dateText,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp),
+                fontWeight = FontWeight.Medium
+            )
+        }
+    }
+}
+
+private fun formatHeaderDate(rawTimestamp: Long): String {
+    val timestamp = if (rawTimestamp in 1L..99999999999L) rawTimestamp * 1000L else rawTimestamp
+    val now = Calendar.getInstance()
+    val nowMidnight = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    val msgCal = Calendar.getInstance().apply { timeInMillis = timestamp }
+    val msgMidnight = Calendar.getInstance().apply {
+        timeInMillis = timestamp
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }.timeInMillis
+
+    val diffDays = ((nowMidnight - msgMidnight) / (24 * 60 * 60 * 1000L)).toInt()
+    val nowYear = now.get(Calendar.YEAR)
+    val msgYear = msgCal.get(Calendar.YEAR)
+
+    return when {
+        diffDays <= 0 -> "Today"
+        diffDays == 1 -> "Yesterday"
+        diffDays in 2..6 -> SimpleDateFormat("EEEE, MMM d", Locale.getDefault()).format(Date(timestamp))
+        nowYear == msgYear -> SimpleDateFormat("EEE, MMM d", Locale.getDefault()).format(Date(timestamp))
+        else -> SimpleDateFormat("MMM d, yyyy", Locale.getDefault()).format(Date(timestamp))
+    }
+}
+
+private fun isSameDay(t1: Long, t2: Long): Boolean {
+    val n1 = if (t1 in 1L..99999999999L) t1 * 1000L else t1
+    val n2 = if (t2 in 1L..99999999999L) t2 * 1000L else t2
+    val c1 = Calendar.getInstance().apply { timeInMillis = n1 }
+    val c2 = Calendar.getInstance().apply { timeInMillis = n2 }
+    return c1.get(Calendar.YEAR) == c2.get(Calendar.YEAR) &&
+           c1.get(Calendar.DAY_OF_YEAR) == c2.get(Calendar.DAY_OF_YEAR)
 }
