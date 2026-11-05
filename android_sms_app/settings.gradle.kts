@@ -12,5 +12,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "RealmeSpamBlockerSMS"
+rootProject.name = "MorpsSMS"
 include(":app")

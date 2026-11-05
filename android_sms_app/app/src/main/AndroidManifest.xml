@@ -19,9 +19,9 @@
         android:label="MorpsSMS"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.RealmeSmsSpamBlocker">
+        android:theme="@style/Theme.MorpsSMS">
 
-        <!-- Main Home Activity (realme 2-tab style) -->
+        <!-- Main Home Activity -->
         <activity
             android:name=".ui.MainActivity"
             android:exported="true"

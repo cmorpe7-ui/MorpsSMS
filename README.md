@@ -8,7 +8,7 @@
 
 - **🛡️ 100% On-Device AI Spam Classifier**: Powered by an incremental Naive Bayes machine learning engine. Zero cloud data transmission — your SMS messages and privacy never leave your phone.
 - **🇵🇭 Philippine Scam Shield**: Specialized heuristics detecting GCash, Maya, Casino, unauthorized job offers, and predatory online lending scam patterns.
-- **🎨 Modern Sleek Design**: Sleek typography, fluid animations, customizable chat bubbles, and dynamic accent color palettes (*realme Blue, realme Yellow, Emerald Green, Sunset Orange, Cyberpunk Purple, and Flamingo Pink*).
+- **🎨 Modern Sleek Design**: Sleek typography, fluid animations, customizable chat bubbles, and dynamic accent color palettes (*Electric Blue, Electric Yellow, Emerald Green, Sunset Orange, Cyberpunk Purple, and Flamingo Pink*).
 - **🌓 Adaptive Theme Engine**: Native Light Mode, Dark Mode, and true AMOLED pitch-black mode with synchronized system bars.
 - **📂 Smart Category Filters**: Instantly sort and view chats by **All**, **Unread**, **Personal**, **Transactions**, **Promotions**, and **Spam**.
 - **📌 Pin & Star Messages**: Pin critical conversations to the top of the inbox and star important messages inside any thread.
@@ -26,7 +26,7 @@
 
 Grab the latest APK directly from the [Releases](https://github.com/cmorpe7-ui/MorpsSMS/releases) page:
 
-1. Download **`MorpsSMS-v2.2.1.apk`**.
+1. Download **`MorpsSMS-v2.2.2.apk`**.
 2. Tap the downloaded file on your Android device to install.
 3. Open **MorpsSMS** and set it as your default SMS application to enable full spam blocking and delivery features.
 

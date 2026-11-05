@@ -1,8 +1,8 @@
-# Proguard rules for Realme SMS Spam Blocker
+# Proguard rules for MorpsSMS
 
 # Keep Room Database entities and DAOs
 -keep class androidx.room.** { *; }
--keep class com.realme.spamblocker.sms.data.local.** { *; }
+-keep class com.morps.sms.data.local.** { *; }
 
 # Keep Compose Runtime
 -keep class androidx.compose.** { *; }

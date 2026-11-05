@@ -5,15 +5,15 @@ plugins {
 }
 
 android {
-    namespace = "com.realme.spamblocker.sms"
+    namespace = "com.morps.sms"
     compileSdk = 34
 
     defaultConfig {
         applicationId = "com.morps.sms"
         minSdk = 26
         targetSdk = 34
-        versionCode = 7
-        versionName = "2.2.1"
+        versionCode = 8
+        versionName = "2.2.2"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
@@ -75,7 +75,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
     implementation("androidx.activity:activity-compose:1.8.2")
 
-    // Jetpack Compose & Material 3 (realme styling)
+    // Jetpack Compose & Material 3 (modern styling)
     implementation(platform("androidx.compose:compose-bom:2024.02.00"))
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")
